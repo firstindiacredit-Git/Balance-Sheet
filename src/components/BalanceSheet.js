@@ -97,9 +97,11 @@ function BalanceSheet() {
     }
 
     try {
+      const token = localStorage.getItem('token');
       await axios.post(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
         },
       });
       setNewEntry({
@@ -108,9 +110,25 @@ function BalanceSheet() {
         type: 'expense',
         photo: null,
       });
+      setOpenAddDialog(false);
       fetchEntries();
     } catch (error) {
       console.error('Error adding entry:', error);
+      // Show error message to user
+      if (error.response) {
+        // The request was made and the server responded with a status code
+        // that falls out of the range of 2xx
+        console.error('Error response:', error.response.data);
+        alert(error.response.data.error || 'Failed to add entry. Please try again.');
+      } else if (error.request) {
+        // The request was made but no response was received
+        console.error('Error request:', error.request);
+        alert('No response from server. Please check your internet connection.');
+      } else {
+        // Something happened in setting up the request that triggered an Error
+        console.error('Error message:', error.message);
+        alert('An error occurred. Please try again.');
+      }
     }
   };
 
