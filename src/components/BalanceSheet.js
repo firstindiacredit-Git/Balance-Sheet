@@ -67,7 +67,9 @@ function BalanceSheet() {
 
   const fetchSheet = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/sheets/${id}`);
+      const response = await axios.get(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}`);
+      // const response = await axios.get(`http://localhost:5000/api/sheets/${id}`);
+
       setSheet(response.data);
     } catch (error) {
       console.error('Error fetching sheet:', error);
@@ -76,7 +78,8 @@ function BalanceSheet() {
 
   const fetchEntries = async () => {
     try {
-      const response = await axios.get(`http://localhost:5000/api/sheets/${id}/entries`);
+      const response = await axios.get(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries`);
+      // const response = await axios.get(`http://localhost:5000/api/sheets/${id}/entries`);
       setEntries(response.data);
     } catch (error) {
       console.error('Error fetching entries:', error);
@@ -94,7 +97,7 @@ function BalanceSheet() {
     }
 
     try {
-      await axios.post(`http://localhost:5000/api/sheets/${id}/entries`, formData, {
+      await axios.post(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -213,7 +216,7 @@ function BalanceSheet() {
     }
 
     try {
-      await axios.put(`http://localhost:5000/api/sheets/${id}/entries/${editEntry._id}`, formData, {
+      await axios.put(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries/${editEntry._id}`, formData, { 
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -228,7 +231,7 @@ function BalanceSheet() {
   const handleDeleteConfirm = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`http://localhost:5000/api/delete/sheets/${id}/entries/${entryToDelete._id}`, {
+      await axios.delete(`https://balance-sheet-backend-three.vercel.app/api/delete/sheets/${id}/entries/${entryToDelete._id}`, { 
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
