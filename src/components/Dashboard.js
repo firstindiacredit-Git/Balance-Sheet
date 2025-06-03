@@ -1,0 +1,437 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Card,
+  Typography,
+  Button,
+  Modal,
+  Input,
+  Space,
+  message,
+  Popconfirm,
+  Row,
+  Col,
+  Avatar,
+  Dropdown,
+  Menu,
+  Table,
+  Statistic,
+} from 'antd';
+import {
+  PlusOutlined,
+  LogoutOutlined,
+  UserOutlined,
+  MoreOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+} from '@ant-design/icons';
+import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
+import SheetManager from './SheetManager';
+
+const { Title, Text } = Typography;
+
+// Array of gradient colors for cards
+const cardGradients = [
+  'linear-gradient(45deg, #FF6B6B 30%, #FF8E8E 90%)',
+  'linear-gradient(45deg, #4ECDC4 30%, #6EE7DE 90%)',
+  'linear-gradient(45deg, #45B7D1 30%, #96D9E8 90%)',
+  'linear-gradient(45deg, #96CEB4 30%, #B8E0D2 90%)',
+  'linear-gradient(45deg, #FFD93D 30%, #FFE66D 90%)',
+  'linear-gradient(45deg, #FF8B94 30%, #FFA5AD 90%)',
+];
+
+function Dashboard() {
+  const [sheets, setSheets] = useState([]);
+  const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [isPreviewModalVisible, setIsPreviewModalVisible] = useState(false);
+  const [selectedSheet, setSelectedSheet] = useState(null);
+  const [sheetEntries, setSheetEntries] = useState([]);
+  const [newSheetName, setNewSheetName] = useState('');
+  const [editSheet, setEditSheet] = useState(null);
+  const navigate = useNavigate();
+  const { logout, user } = useAuth();
+
+  useEffect(() => {
+    if (user) {
+      fetchSheets();
+    }
+  }, [user]);
+
+  const fetchSheets = async () => {
+    try {
+      const response = await axios.get('/sheets');
+      setSheets(response.data);
+    } catch (error) {
+      console.error('Error fetching sheets:', error);
+      message.error('Failed to fetch balance sheets');
+    }
+  };
+
+  const handleCreateSheet = async () => {
+    try {
+      const response = await axios.post('/sheets', {
+        name: newSheetName
+      });
+      setSheets([...sheets, response.data]);
+      setIsCreateModalVisible(false);
+      setNewSheetName('');
+      message.success('Balance sheet created successfully');
+    } catch (error) {
+      console.error('Error creating sheet:', error);
+      message.error('Failed to create balance sheet');
+    }
+  };
+
+  const handleEditSheet = async () => {
+    try {
+      const response = await axios.put(`/sheets/${editSheet._id}`, {
+        name: editSheet.name
+      });
+      setSheets(sheets.map(sheet => 
+        sheet._id === editSheet._id ? response.data : sheet
+      ));
+      setIsEditModalVisible(false);
+      setEditSheet(null);
+      message.success('Balance sheet updated successfully');
+    } catch (error) {
+      console.error('Error updating sheet:', error);
+      message.error('Failed to update balance sheet');
+    }
+  };
+
+  const handleDeleteSheet = async (sheetId) => {
+    try {
+      // Show loading message
+      const loadingMessage = message.loading('Deleting balance sheet...', 0);
+      
+      // Make the delete request
+      await axios.delete(`/sheets/${sheetId}`);
+      
+      // Update the UI
+      setSheets(sheets.filter(sheet => sheet._id !== sheetId));
+      
+      // Close loading message and show success
+      loadingMessage();
+      message.success('Balance sheet deleted successfully');
+    } catch (error) {
+      console.error('Error deleting sheet:', error);
+      
+      // Show appropriate error message based on the error type
+      if (error.response) {
+        switch (error.response.status) {
+          case 404:
+            message.error('Balance sheet not found');
+            break;
+          case 401:
+            message.error('Please log in again to delete the sheet');
+            break;
+          default:
+            message.error('Failed to delete balance sheet. Please try again.');
+        }
+      } else {
+        message.error('Network error. Please check your connection and try again.');
+      }
+    }
+  };
+
+  const handlePreviewSheet = async (sheet) => {
+    try {
+      setSelectedSheet(sheet);
+      const response = await axios.get(`/sheets/${sheet._id}/entries`);
+      setSheetEntries(response.data);
+      setIsPreviewModalVisible(true);
+    } catch (error) {
+      console.error('Error fetching sheet entries:', error);
+      message.error('Failed to load sheet preview');
+    }
+  };
+
+  const calculateTotals = (entries) => {
+    const income = entries
+      .filter(entry => entry.type === 'income')
+      .reduce((sum, entry) => sum + entry.amount, 0);
+    const expenses = entries
+      .filter(entry => entry.type === 'expense')
+      .reduce((sum, entry) => sum + entry.amount, 0);
+    return { income, expenses, balance: income - expenses };
+  };
+
+  const handleMenuClick = (key, sheet) => {
+    switch (key) {
+      case 'edit':
+        setEditSheet(sheet);
+        setIsEditModalVisible(true);
+        break;
+      case 'preview':
+        handlePreviewSheet(sheet);
+        break;
+      case 'delete':
+        // Delete is handled by Popconfirm
+        break;
+      default:
+        break;
+    }
+  };
+
+  const menu = (sheet) => (
+    <Menu onClick={({ key }) => handleMenuClick(key, sheet)}>
+      <Menu.Item key="preview" icon={<EyeOutlined />}>
+        View Sheet
+      </Menu.Item>
+      <Menu.Item key="edit" icon={<EditOutlined />}>
+        Edit
+      </Menu.Item>
+      <Menu.Item key="delete" icon={<DeleteOutlined />} danger>
+        <Popconfirm
+          title="Delete Balance Sheet"
+          description={
+            <div>
+              <p>Are you sure you want to delete "{sheet.name}"?</p>
+              <p style={{ color: '#ff4d4f', fontSize: '12px', marginTop: '8px' }}>
+                Warning: This will permanently delete all entries in this sheet.
+              </p>
+            </div>
+          }
+          onConfirm={() => handleDeleteSheet(sheet._id)}
+          okText="Yes, Delete"
+          cancelText="No, Cancel"
+          okButtonProps={{ 
+            danger: true,
+            style: { backgroundColor: '#ff4d4f' }
+          }}
+          cancelButtonProps={{ style: { borderColor: '#d9d9d9' } }}
+        >
+          Delete
+        </Popconfirm>
+      </Menu.Item>
+    </Menu>
+  );
+
+  const columns = [
+    {
+      title: 'Date',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (date) => new Date(date).toLocaleString(),
+    },
+    {
+      title: 'Description',
+      dataIndex: 'description',
+      key: 'description',
+    },
+    {
+      title: 'Type',
+      dataIndex: 'type',
+      key: 'type',
+      render: (type) => (
+        <span style={{ color: type === 'income' ? '#52c41a' : '#ff4d4f' }}>
+          {type.charAt(0).toUpperCase() + type.slice(1)}
+        </span>
+      ),
+    },
+    {
+      title: 'Amount',
+      dataIndex: 'amount',
+      key: 'amount',
+      render: (amount, record) => (
+        <span style={{ color: record.type === 'income' ? '#52c41a' : '#ff4d4f' }}>
+          ₹{amount.toFixed(2)}
+        </span>
+      ),
+    },
+  ];
+
+  const handleSheetUpdated = (updatedSheet) => {
+    setSheets(sheets.map(sheet => 
+      sheet._id === updatedSheet._id ? updatedSheet : sheet
+    ));
+    message.success('Sheet updated successfully');
+  };
+
+  const handleSheetDeleted = (deletedSheetId) => {
+    setSheets(sheets.filter(sheet => sheet._id !== deletedSheetId));
+    message.success('Sheet deleted successfully');
+  };
+
+  return (
+    <div style={{ padding: '24px' }}>
+      <Card
+        style={{
+          marginBottom: '24px',
+          background: 'linear-gradient(45deg, #2196F3 30%, #64B5F6 90%)',
+          borderRadius: '8px',
+        }}
+        bodyStyle={{ padding: '24px' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <Title level={2} style={{ color: 'white', margin: 0 }}>
+              Balance Sheets
+            </Title>
+            <Text style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+              Welcome back, {user?.username || 'User'}!
+            </Text>
+          </div>
+          <Space>
+            <Avatar icon={<UserOutlined />} style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }} />
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setIsCreateModalVisible(true)}
+              style={{ backgroundColor: '#4CAF50' }}
+            >
+              New Sheet
+            </Button>
+            <Button
+              icon={<LogoutOutlined />}
+              onClick={logout}
+              style={{ color: 'blue', borderColor: 'white' }}
+            >
+              Logout
+            </Button>
+          </Space>
+        </div>
+      </Card>
+
+      <Row gutter={[24, 24]}>
+        {sheets.map((sheet, index) => (
+          <Col xs={24} sm={12} md={8} key={sheet._id}>
+            <Card
+              hoverable
+              style={{
+                height: '100%',
+                background: cardGradients[index % cardGradients.length],
+                borderRadius: '8px',
+                cursor: 'pointer'
+              }}
+              bodyStyle={{ padding: '20px', height: '100%' }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div onClick={() => navigate(`/sheet/${sheet._id}`)}>
+                  <Title level={4} style={{ color: 'white', margin: 0 }}>
+                    {sheet.name}
+                  </Title>
+                  <Text style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                    Created: {new Date(sheet.createdAt).toLocaleDateString()}
+                  </Text>
+                </div>
+                <SheetManager 
+                  sheet={sheet}
+                  onSheetUpdated={handleSheetUpdated}
+                  onSheetDeleted={handleSheetDeleted}
+                />
+              </div>
+            </Card>
+          </Col>
+        ))}
+      </Row>
+
+      {/* Create Modal */}
+      <Modal
+        title="Create New Balance Sheet"
+        open={isCreateModalVisible}
+        onOk={handleCreateSheet}
+        onCancel={() => {
+          setIsCreateModalVisible(false);
+          setNewSheetName('');
+        }}
+        okText="Create"
+        cancelText="Cancel"
+      >
+        <Input
+          placeholder="Enter sheet name"
+          value={newSheetName}
+          onChange={(e) => setNewSheetName(e.target.value)}
+          onPressEnter={handleCreateSheet}
+        />
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        title="Edit Balance Sheet"
+        open={isEditModalVisible}
+        onOk={handleEditSheet}
+        onCancel={() => {
+          setIsEditModalVisible(false);
+          setEditSheet(null);
+        }}
+        okText="Save Changes"
+        cancelText="Cancel"
+      >
+        <Input
+          placeholder="Enter sheet name"
+          value={editSheet?.name || ''}
+          onChange={(e) => setEditSheet({ ...editSheet, name: e.target.value })}
+          onPressEnter={handleEditSheet}
+        />
+      </Modal>
+
+      {/* Preview Modal */}
+      <Modal
+        title={
+          <div>
+            <Title level={4} style={{ margin: 0 }}>{selectedSheet?.name}</Title>
+            <Text type="secondary">Sheet Preview</Text>
+          </div>
+        }
+        open={isPreviewModalVisible}
+        onCancel={() => {
+          setIsPreviewModalVisible(false);
+          setSelectedSheet(null);
+          setSheetEntries([]);
+        }}
+        width={800}
+        footer={null}
+      >
+        {selectedSheet && (
+          <div>
+            <Card style={{ marginBottom: '16px' }}>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Statistic
+                    title="Total Income"
+                    value={calculateTotals(sheetEntries).income}
+                    precision={2}
+                    valueStyle={{ color: '#52c41a' }}
+                    prefix="₹"
+                  />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title="Total Expenses"
+                    value={calculateTotals(sheetEntries).expenses}
+                    precision={2}
+                    valueStyle={{ color: '#ff4d4f' }}
+                    prefix="₹"
+                  />
+                </Col>
+                <Col span={8}>
+                  <Statistic
+                    title="Balance"
+                    value={calculateTotals(sheetEntries).balance}
+                    precision={2}
+                    valueStyle={{ 
+                      color: calculateTotals(sheetEntries).balance >= 0 ? '#52c41a' : '#ff4d4f' 
+                    }}
+                    prefix="₹"
+                  />
+                </Col>
+              </Row>
+            </Card>
+            <Table
+              columns={columns}
+              dataSource={sheetEntries}
+              rowKey="_id"
+              pagination={{ pageSize: 5 }}
+            />
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
+export default Dashboard; 
