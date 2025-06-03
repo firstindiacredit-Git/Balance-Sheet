@@ -242,8 +242,10 @@ function BalanceSheet() {
   };
 
   const handlePhotoClick = (photo) => {
-    setSelectedPhoto(photo);
-    setOpenPhotoDialog(true);
+    if (photo) {
+        setSelectedPhoto(photo);
+        setOpenPhotoDialog(true);
+    }
   };
 
   if (!sheet) return null;
@@ -541,19 +543,21 @@ function BalanceSheet() {
                     </TableCell>
                     <TableCell>
                       {entry.photo && (
-                        <img
-                          src={`http://localhost:5000/${entry.photo}`}
-                          alt="Entry"
-                          style={{ 
-                            maxWidth: '50px', 
-                            maxHeight: '50px', 
-                            cursor: 'pointer',
-                            transition: 'transform 0.2s',
-                            borderRadius: '4px',
-                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                          }}
+                        <IconButton
                           onClick={() => handlePhotoClick(entry.photo)}
-                        />
+                          size="small"
+                        >
+                          <img
+                            src={entry.photo}
+                            alt="Entry photo"
+                            style={{
+                              width: '40px',
+                              height: '40px',
+                              objectFit: 'cover',
+                              borderRadius: '4px'
+                            }}
+                          />
+                        </IconButton>
                       )}
                     </TableCell>
                     <TableCell>
@@ -793,49 +797,31 @@ function BalanceSheet() {
         </DialogActions>
       </Dialog>
 
-      {/* Photo Preview Dialog */}
-      <Dialog 
-        open={openPhotoDialog} 
+      {/* Photo Dialog */}
+      <Dialog
+        open={openPhotoDialog}
         onClose={() => setOpenPhotoDialog(false)}
         maxWidth="md"
         fullWidth
-        PaperProps={{
-          sx: {
-            bgcolor: 'transparent',
-            boxShadow: 'none',
-            overflow: 'hidden'
-          }
-        }}
       >
-        <DialogContent sx={{ p: 0, position: 'relative' }}>
-          <IconButton
-            onClick={() => setOpenPhotoDialog(false)}
-            sx={{
-              position: 'absolute',
-              right: 8,
-              top: 8,
-              bgcolor: 'rgba(0, 0, 0, 0.5)',
-              color: 'white',
-              '&:hover': {
-                bgcolor: 'rgba(0, 0, 0, 0.7)'
-              }
-            }}
-          >
-            <CloseIcon />
-          </IconButton>
+        <DialogTitle>Photo Preview</DialogTitle>
+        <DialogContent>
           {selectedPhoto && (
             <img
-              src={`http://localhost:5000/${selectedPhoto}`}
-              alt="Full size"
+              src={selectedPhoto}
+              alt="Entry photo"
               style={{
                 width: '100%',
                 height: 'auto',
-                maxHeight: '80vh',
+                maxHeight: '70vh',
                 objectFit: 'contain'
               }}
             />
           )}
         </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenPhotoDialog(false)}>Close</Button>
+        </DialogActions>
       </Dialog>
     </Container>
   );
