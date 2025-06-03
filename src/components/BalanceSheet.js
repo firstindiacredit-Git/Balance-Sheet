@@ -97,7 +97,7 @@ function BalanceSheet() {
     }
 
     try {
-      await axios.post(`https://pizoenfly-balance.vercel.app/api/sheets/${id}/entries`, formData, {
+      await axios.post(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -216,7 +216,7 @@ function BalanceSheet() {
     }
 
     try {
-      await axios.put(`https://pizoenfly-balance.vercel.app/api/sheets/${id}/entries/${editEntry._id}`, formData, { 
+      await axios.put(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries/${editEntry._id}`, formData, { 
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -231,7 +231,7 @@ function BalanceSheet() {
   const handleDeleteConfirm = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`https://pizoenfly-balance.vercel.app/api/delete/sheets/${id}/entries/${entryToDelete._id}`, { 
+      await axios.delete(`https://balance-sheet-backend-three.vercel.app/api/delete/sheets/${id}/entries/${entryToDelete._id}`, { 
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
