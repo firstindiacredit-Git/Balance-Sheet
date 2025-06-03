@@ -97,38 +97,48 @@ function BalanceSheet() {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      await axios.post(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Authorization': `Bearer ${token}`
-        },
-      });
-      setNewEntry({
-        description: '',
-        amount: '',
-        type: 'expense',
-        photo: null,
-      });
-      setOpenAddDialog(false);
-      fetchEntries();
+      const response = await axios.post(
+        `https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+        }
+      );
+
+      if (response.data) {
+        setNewEntry({
+          description: '',
+          amount: '',
+          type: 'expense',
+          photo: null,
+        });
+        setOpenAddDialog(false);
+        fetchEntries();
+      }
     } catch (error) {
       console.error('Error adding entry:', error);
-      // Show error message to user
+      let errorMessage = 'Failed to add entry';
+      
       if (error.response) {
         // The request was made and the server responded with a status code
         // that falls out of the range of 2xx
+        errorMessage = error.response.data.error || error.response.data.details || errorMessage;
         console.error('Error response:', error.response.data);
-        alert(error.response.data.error || 'Failed to add entry. Please try again.');
       } else if (error.request) {
         // The request was made but no response was received
+        errorMessage = 'No response from server';
         console.error('Error request:', error.request);
-        alert('No response from server. Please check your internet connection.');
       } else {
         // Something happened in setting up the request that triggered an Error
+        errorMessage = error.message;
         console.error('Error message:', error.message);
-        alert('An error occurred. Please try again.');
       }
+
+      // You can add a state for error messages and display them in the UI
+      alert(errorMessage);
     }
   };
 
@@ -234,15 +244,37 @@ function BalanceSheet() {
     }
 
     try {
-      await axios.put(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries/${editEntry._id}`, formData, { 
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      setOpenEditDialog(false);
-      fetchEntries();
+      const response = await axios.put(
+        `https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries/${editEntry._id}`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          },
+        }
+      );
+
+      if (response.data) {
+        setOpenEditDialog(false);
+        fetchEntries();
+      }
     } catch (error) {
       console.error('Error updating entry:', error);
+      let errorMessage = 'Failed to update entry';
+      
+      if (error.response) {
+        errorMessage = error.response.data.error || error.response.data.details || errorMessage;
+        console.error('Error response:', error.response.data);
+      } else if (error.request) {
+        errorMessage = 'No response from server';
+        console.error('Error request:', error.request);
+      } else {
+        errorMessage = error.message;
+        console.error('Error message:', error.message);
+      }
+
+      alert(errorMessage);
     }
   };
 
