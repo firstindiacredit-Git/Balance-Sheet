@@ -43,13 +43,16 @@ import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import CloseIcon from '@mui/icons-material/Close';
 import './BalanceSheet.css';
 
-const API_URL = 'https://balance-sheet-backend-three.vercel.app';
+// const API_URL = 'https://balance-sheet-backend-three.vercel.app';
+const API_URL ='http://localhost:5000';
 
 function BalanceSheet() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [sheet, setSheet] = useState(null);
   const [entries, setEntries] = useState([]);
+  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [newEntry, setNewEntry] = useState({
     description: '',
     amount: '',
@@ -185,6 +188,25 @@ function BalanceSheet() {
     return { income, expenses, balance: income - expenses };
   };
 
+  const getFilteredEntries = () => {
+    let filtered = entries;
+    
+    // Apply type filter
+    if (filter !== 'all') {
+      filtered = filtered.filter(entry => entry.type === filter);
+    }
+    
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(entry => 
+        entry.description.toLowerCase().includes(query)
+      );
+    }
+    
+    return filtered;
+  };
+
   const downloadCSV = () => {
     const headers = ['Date', 'Description', 'Type', 'Amount'];
     const csvData = entries.map(entry => [
@@ -213,41 +235,58 @@ function BalanceSheet() {
   const downloadPDF = () => {
     const doc = new jsPDF();
     
-    // Add title
-    doc.setFontSize(16);
-    doc.text(sheet.name, 14, 15);
-    
-    // Add summary
-    doc.setFontSize(12);
-    doc.text(`Total Income: ₹${totals.income.toFixed(2)}`, 14, 30);
-    doc.text(`Total Expenses: ₹${totals.expenses.toFixed(2)}`, 14, 35);
-    doc.text(`Balance: ₹${totals.balance.toFixed(2)}`, 14, 40);
+    // Add watermark
+    const img = new Image();
+    img.src = '/logo.png'; // Make sure logo.png is in the public folder
+    img.onload = function() {
+      // Calculate watermark size and position
+      const imgWidth = 100;
+      const imgHeight = (imgWidth * img.height) / img.width;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      
+      // Add watermark with reduced opacity
+      doc.saveGraphicsState();
+      doc.setGState(new doc.GState({opacity: 0.2}));
+      doc.addImage(img, 'PNG', (pageWidth - imgWidth) / 2, (pageHeight - imgHeight) / 2, imgWidth, imgHeight);
+      doc.restoreGraphicsState();
+      
+      // Add title
+      doc.setFontSize(16);
+      doc.text(sheet.name, 14, 15);
+      
+      // Add summary
+      doc.setFontSize(12);
+      doc.text(`Total Income: ₹${totals.income.toFixed(2)}`, 14, 30);
+      doc.text(`Total Expenses: ₹${totals.expenses.toFixed(2)}`, 14, 35);
+      doc.text(`Balance: ₹${totals.balance.toFixed(2)}`, 14, 40);
 
-    // Add table
-    const tableData = entries.map(entry => [
-      new Date(entry.createdAt).toLocaleString('en-IN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      }),
-      entry.description,
-      entry.type,
-      `₹${entry.amount.toFixed(2)}`
-    ]);
+      // Add table
+      const tableData = entries.map(entry => [
+        new Date(entry.createdAt).toLocaleString('en-IN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        }),
+        entry.description,
+        entry.type,
+        `₹${entry.amount.toFixed(2)}`
+      ]);
 
-    autoTable(doc, {
-      head: [['Date', 'Description', 'Type', 'Amount']],
-      body: tableData,
-      startY: 50,
-      theme: 'grid',
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [41, 128, 185] }
-    });
+      autoTable(doc, {
+        head: [['Date', 'Description', 'Type', 'Amount']],
+        body: tableData,
+        startY: 50,
+        theme: 'grid',
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [41, 128, 185] }
+      });
 
-    doc.save(`${sheet.name}_balance_sheet.pdf`);
+      doc.save(`${sheet.name}_balance_sheet.pdf`);
+    };
   };
 
   const handleEdit = (entry) => {
@@ -666,6 +705,90 @@ function BalanceSheet() {
         </Grid>
 
         <Grid item xs={12}>
+          <Box sx={{ 
+            mb: 2, 
+            display: 'flex', 
+            gap: 2, 
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}>
+            <TextField
+              placeholder="Search entries..."
+              variant="outlined"
+              size="small"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              sx={{
+                minWidth: '250px',
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                  '&:hover fieldset': {
+                    borderColor: '#1976d2',
+                  },
+                },
+              }}
+              InputProps={{
+                startAdornment: (
+                  <Box sx={{ mr: 1, color: 'text.secondary' }}>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z" fill="currentColor"/>
+                    </svg>
+                  </Box>
+                ),
+                endAdornment: searchQuery && (
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearchQuery('')}
+                    sx={{ mr: -1 }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                ),
+              }}
+            />
+            <ButtonGroup variant="contained" aria-label="filter buttons">
+              <Button
+                onClick={() => setFilter('all')}
+                variant={filter === 'all' ? 'contained' : 'outlined'}
+                sx={{
+                  bgcolor: filter === 'all' ? '#1976d2' : 'transparent',
+                  color: filter === 'all' ? 'white' : '#1976d2',
+                  '&:hover': {
+                    bgcolor: filter === 'all' ? '#1565c0' : 'rgba(25, 118, 210, 0.1)'
+                  }
+                }}
+              >
+                All
+              </Button>
+              <Button
+                onClick={() => setFilter('income')}
+                variant={filter === 'income' ? 'contained' : 'outlined'}
+                sx={{
+                  bgcolor: filter === 'income' ? '#4caf50' : 'transparent',
+                  color: filter === 'income' ? 'white' : '#4caf50',
+                  '&:hover': {
+                    bgcolor: filter === 'income' ? '#388e3c' : 'rgba(76, 175, 80, 0.1)'
+                  }
+                }}
+              >
+                Income
+              </Button>
+              <Button
+                onClick={() => setFilter('expense')}
+                variant={filter === 'expense' ? 'contained' : 'outlined'}
+                sx={{
+                  bgcolor: filter === 'expense' ? '#f44336' : 'transparent',
+                  color: filter === 'expense' ? 'white' : '#f44336',
+                  '&:hover': {
+                    bgcolor: filter === 'expense' ? '#d32f2f' : 'rgba(244, 67, 54, 0.1)'
+                  }
+                }}
+              >
+                Expenses
+              </Button>
+            </ButtonGroup>
+          </Box>
           <TableContainer 
             component={Paper}
             sx={{ 
@@ -686,7 +809,7 @@ function BalanceSheet() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {entries.map((entry, index) => (
+                {getFilteredEntries().map((entry, index) => (
                   <TableRow 
                     key={entry._id}
                     sx={{ 
