@@ -152,6 +152,18 @@ export const AuthProvider = ({ children }) => {
                 };
             }
 
+            // Ensure username is a string
+            if (typeof username !== 'string') {
+                const errorMessage = 'Username must be a string';
+                setError(errorMessage);
+                message.error(errorMessage);
+                return { 
+                    success: false, 
+                    error: errorMessage,
+                    fields: { username: true }
+                };
+            }
+
             const loginData = {
                 username: username.toLowerCase().trim(),
                 password
