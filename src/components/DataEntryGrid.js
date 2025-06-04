@@ -1,10 +1,19 @@
 import React, { useState } from 'react';
-import { Table, Button, Upload, Modal, Space, Card, Form, Input, InputNumber, DatePicker, Select, message, Popconfirm } from 'antd';
+import { Table, Button, Upload, Modal, Space, Card, Form, Input, InputNumber, DatePicker, Select, message, Popconfirm, Spin, Skeleton } from 'antd';
 import { PlusOutlined, UploadOutlined, DeleteOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import dayjs from 'dayjs';
 
 const { Option } = Select;
+
+const LoadingTable = () => (
+  <div style={{ padding: '24px' }}>
+    <div style={{ marginBottom: '16px' }}>
+      <Skeleton.Button active style={{ width: 120, height: 32 }} />
+    </div>
+    <Skeleton active paragraph={{ rows: 5 }} />
+  </div>
+);
 
 const DataEntryGrid = () => {
   const [form] = Form.useForm();
@@ -14,6 +23,9 @@ const DataEntryGrid = () => {
   const [previewImage, setPreviewImage] = useState('');
   const [editingKey, setEditingKey] = useState('');
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const categories = [
     'Income',
@@ -132,16 +144,23 @@ const DataEntryGrid = () => {
 
   const handleModalOk = () => {
     form.validateFields().then((values) => {
-      const newRow = {
-        key: dataSource.length + 1,
-        id: dataSource.length + 1,
-        ...values,
-        date: values.date.format('YYYY-MM-DD'),
-      };
-      setDataSource([...dataSource, newRow]);
-      setIsModalVisible(false);
-      form.resetFields();
-      message.success('Record added successfully');
+      setIsSubmitting(true);
+      try {
+        const newRow = {
+          key: dataSource.length + 1,
+          id: dataSource.length + 1,
+          ...values,
+          date: values.date.format('YYYY-MM-DD'),
+        };
+        setDataSource([...dataSource, newRow]);
+        setIsModalVisible(false);
+        form.resetFields();
+        message.success('Record added successfully');
+      } catch (error) {
+        message.error('Failed to add record');
+      } finally {
+        setIsSubmitting(false);
+      }
     });
   };
 
@@ -151,8 +170,15 @@ const DataEntryGrid = () => {
   };
 
   const handleDelete = (key) => {
-    setDataSource(dataSource.filter(item => item.key !== key));
-    message.success('Record deleted successfully');
+    setIsDeleting(true);
+    try {
+      setDataSource(dataSource.filter(item => item.key !== key));
+      message.success('Record deleted successfully');
+    } catch (error) {
+      message.error('Failed to delete record');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const edit = (record) => {
@@ -167,6 +193,7 @@ const DataEntryGrid = () => {
 
   const save = async (key) => {
     try {
+      setIsSubmitting(true);
       const row = await form.validateFields();
       const newData = [...dataSource];
       const index = newData.findIndex(item => key === item.key);
@@ -183,6 +210,9 @@ const DataEntryGrid = () => {
       }
     } catch (errInfo) {
       console.log('Validate Failed:', errInfo);
+      message.error('Failed to update record');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -218,84 +248,104 @@ const DataEntryGrid = () => {
   };
 
   return (
-    <Card style={{ margin: '20px' }}>
-      <Space style={{ marginBottom: '20px' }}>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={handleAddRow}
-        >
-          Add New Record
-        </Button>
-        <Upload {...uploadProps}>
-          <Button icon={<UploadOutlined />}>Upload Image</Button>
-        </Upload>
-      </Space>
-
-      <Table
-        dataSource={dataSource}
-        columns={columns}
-        pagination={{ pageSize: 10 }}
-        scroll={{ x: true }}
-        bordered
-      />
-
-      <Modal
-        title="Add New Record"
-        open={isModalVisible}
-        onOk={handleModalOk}
-        onCancel={handleModalCancel}
+    <Card>
+      <Spin 
+        spinning={isLoading} 
+        tip="Loading data..."
+        indicator={
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <Spin size="large" />
+            <span style={{ color: '#1890ff' }}>Loading your data...</span>
+          </div>
+        }
       >
-        <Form
-          form={form}
-          layout="vertical"
-        >
-          <Form.Item
-            name="description"
-            label="Description"
-            rules={[{ required: true, message: 'Please enter description' }]}
+        <div style={{ marginBottom: 16 }}>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={handleAddRow}
+            loading={isSubmitting}
           >
-            <Input />
-          </Form.Item>
-          <Form.Item
-            name="amount"
-            label="Amount"
-            rules={[{ required: true, message: 'Please enter amount' }]}
-          >
-            <InputNumber
-              style={{ width: '100%' }}
-              formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-              parser={value => value.replace(/\$\s?|(,*)/g, '')}
-            />
-          </Form.Item>
-          <Form.Item
-            name="date"
-            label="Date"
-            rules={[{ required: true, message: 'Please select date' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
-          </Form.Item>
-          <Form.Item
-            name="category"
-            label="Category"
-            rules={[{ required: true, message: 'Please select category' }]}
-          >
-            <Select>
-              {categories.map(category => (
-                <Option key={category} value={category}>{category}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </Form>
-      </Modal>
+            Add Record
+          </Button>
+        </div>
 
-      <Modal
-        open={previewOpen}
-        footer={null}
-        onCancel={() => setPreviewOpen(false)}
-      >
-        <img alt="Preview" style={{ width: '100%' }} src={previewImage} />
-      </Modal>
+        {isLoading ? (
+          <LoadingTable />
+        ) : (
+          <Table
+            columns={columns}
+            dataSource={dataSource}
+            rowKey="key"
+            loading={isLoading}
+          />
+        )}
+
+        <Modal
+          title={
+            <Space>
+              Add New Record
+              {isSubmitting && <Spin size="small" />}
+            </Space>
+          }
+          open={isModalVisible}
+          onOk={handleModalOk}
+          onCancel={handleModalCancel}
+          confirmLoading={isSubmitting}
+        >
+          <Form form={form} layout="vertical">
+            <Form.Item
+              name="description"
+              label="Description"
+              rules={[{ required: true, message: 'Please enter description' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              name="amount"
+              label="Amount"
+              rules={[{ required: true, message: 'Please enter amount' }]}
+            >
+              <InputNumber
+                style={{ width: '100%' }}
+                formatter={value => `$ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                parser={value => value.replace(/\$\s?|(,*)/g, '')}
+              />
+            </Form.Item>
+            <Form.Item
+              name="date"
+              label="Date"
+              rules={[{ required: true, message: 'Please select date' }]}
+            >
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item
+              name="category"
+              label="Category"
+              rules={[{ required: true, message: 'Please select category' }]}
+            >
+              <Select>
+                {categories.map(category => (
+                  <Option key={category} value={category}>{category}</Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Form>
+        </Modal>
+
+        <Modal
+          open={previewOpen}
+          footer={null}
+          onCancel={() => setPreviewOpen(false)}
+        >
+          <img alt="Preview" style={{ width: '100%' }} src={previewImage} />
+        </Modal>
+      </Spin>
     </Card>
   );
 };

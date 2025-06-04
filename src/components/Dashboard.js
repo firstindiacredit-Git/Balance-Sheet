@@ -276,7 +276,23 @@ function Dashboard() {
             </Text>
           </div>
           <Space>
-            <Avatar icon={<UserOutlined />} style={{ backgroundColor: 'rgba(255, 255, 255, 0.2)' }} />
+            <Avatar 
+              icon={<UserOutlined />} 
+              onClick={() => navigate('/profile')}
+              style={{ 
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+                e.currentTarget.style.transform = 'scale(1.1)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            />
             <Button
               type="primary"
               icon={<PlusOutlined />}

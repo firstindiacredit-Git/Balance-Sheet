@@ -29,6 +29,8 @@ import {
   Tooltip,
   Zoom,
   Fab,
+  CircularProgress,
+  Skeleton,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -39,8 +41,9 @@ import autoTable from 'jspdf-autotable';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import CloseIcon from '@mui/icons-material/Close';
+import './BalanceSheet.css';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+const API_URL = 'https://balance-sheet-backend-three.vercel.app';
 
 function BalanceSheet() {
   const { id } = useParams();
@@ -61,6 +64,9 @@ function BalanceSheet() {
   const [openPhotoDialog, setOpenPhotoDialog] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     fetchSheet();
@@ -69,31 +75,37 @@ function BalanceSheet() {
 
   const fetchSheet = async () => {
     try {
+      setIsLoading(true);
       const response = await axios.get(`${API_URL}/api/sheets/${id}`);
       setSheet(response.data);
     } catch (error) {
       console.error('Error fetching sheet:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const fetchEntries = async () => {
     try {
+      setIsLoading(true);
       const response = await axios.get(`${API_URL}/api/sheets/${id}/entries`);
       setEntries(response.data);
     } catch (error) {
       console.error('Error fetching entries:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate required fields
     if (!newEntry.description || !newEntry.amount || !newEntry.type) {
         alert('Please fill in all required fields');
         return;
     }
 
+    setIsSubmitting(true);
     const formData = new FormData();
     formData.append('description', newEntry.description);
     formData.append('amount', newEntry.amount);
@@ -158,6 +170,8 @@ function BalanceSheet() {
             }
         }
         alert(errorMessage);
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -255,12 +269,12 @@ function BalanceSheet() {
   const handleEditSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate required fields
     if (!editEntry?.description || !editEntry?.amount || !editEntry?.type) {
         alert('Please fill in all required fields');
         return;
     }
 
+    setIsSubmitting(true);
     const formData = new FormData();
     formData.append('description', editEntry.description);
     formData.append('amount', editEntry.amount);
@@ -313,6 +327,8 @@ function BalanceSheet() {
             }
         }
         alert(errorMessage);
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -339,24 +355,97 @@ function BalanceSheet() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <Container>
+        {/* Header Skeleton */}
+        <Box sx={{ 
+          mt: 4, 
+          mb: 4, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          gap: '3px',
+          background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
+          borderRadius: 2,
+          p: 2,
+          color: 'white'
+        }}>
+          <Skeleton variant="text" width={200} height={40} sx={{ bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Skeleton variant="rectangular" width={120} height={36} sx={{ bgcolor: 'rgba(255, 255, 255, 0.3)', borderRadius: 1 }} />
+            <Skeleton variant="rectangular" width={120} height={36} sx={{ bgcolor: 'rgba(255, 255, 255, 0.3)', borderRadius: 1 }} />
+          </Box>
+        </Box>
+
+        {/* Summary Card Skeleton */}
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Card elevation={3} sx={{ borderRadius: 2 }}>
+              <CardContent sx={{ p: 0 }}>
+                <Box sx={{ p: 3, bgcolor: '#1976d2' }}>
+                  <Skeleton variant="text" width={150} height={30} sx={{ bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
+                </Box>
+                <Grid container spacing={0}>
+                  {[1, 2, 3].map((item) => (
+                    <Grid item xs={12} md={4} key={item}>
+                      <Box sx={{ p: 3, borderRight: item !== 3 ? '1px solid #e0e0e0' : 'none' }}>
+                        <Skeleton variant="text" width={100} height={24} />
+                        <Skeleton variant="text" width={150} height={40} />
+                        <Skeleton variant="text" width={120} height={20} />
+                      </Box>
+                    </Grid>
+                  ))}
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Table Skeleton */}
+          <Grid item xs={12}>
+            <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: '#1976d2' }}>
+                    {['Date', 'Description', 'Type', 'Amount', 'Photo', 'Actions'].map((header) => (
+                      <TableCell key={header} sx={{ color: 'white', fontWeight: 'bold' }}>
+                        <Skeleton variant="text" width={80} height={24} sx={{ bgcolor: 'rgba(255, 255, 255, 0.3)' }} />
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {[1, 2, 3, 4, 5].map((row) => (
+                    <TableRow key={row}>
+                      <TableCell><Skeleton variant="text" width={120} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={200} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={80} /></TableCell>
+                      <TableCell><Skeleton variant="text" width={100} /></TableCell>
+                      <TableCell><Skeleton variant="circular" width={40} height={40} /></TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 1 }}>
+                          <Skeleton variant="circular" width={32} height={32} />
+                          <Skeleton variant="circular" width={32} height={32} />
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Grid>
+        </Grid>
+      </Container>
+    );
+  }
+
   if (!sheet) return null;
 
   const totals = calculateTotals();
 
   return (
     <Container>
-      <Box sx={{ 
-        mt: 4, 
-        mb: 4, 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        gap: '3px',
-        background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
-        borderRadius: 2,
-        p: 2,
-        color: 'white'
-      }}>
+      <Box className="css-35ijrp">
         <Typography variant="h4" component="h1" gutterBottom sx={{ color: 'white' }}>
           {sheet.name}
         </Typography>
@@ -692,6 +781,15 @@ function BalanceSheet() {
       >
         <DialogTitle>
           Add New Entry
+          {isSubmitting && (
+            <CircularProgress 
+              size={20} 
+              sx={{ 
+                ml: 2,
+                color: 'primary.main'
+              }} 
+            />
+          )}
         </DialogTitle>
         <DialogContent>
           <form onSubmit={handleSubmit} style={{ marginTop: '16px' }}>
@@ -829,6 +927,7 @@ function BalanceSheet() {
             onClick={handleSubmit}
             variant="contained" 
             color="primary"
+            disabled={isSubmitting}
             sx={{ 
               borderRadius: 2,
               textTransform: 'none',
@@ -838,7 +937,7 @@ function BalanceSheet() {
               }
             }}
           >
-            Add Entry
+            {isSubmitting ? <CircularProgress size={24} /> : 'Add Entry'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -862,8 +961,24 @@ function BalanceSheet() {
       </Fab>
 
       {/* Edit Dialog */}
-      <Dialog open={openEditDialog} onClose={() => setOpenEditDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Entry</DialogTitle>
+      <Dialog 
+        open={openEditDialog} 
+        onClose={() => setOpenEditDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          Edit Entry
+          {isSubmitting && (
+            <CircularProgress 
+              size={20} 
+              sx={{ 
+                ml: 2,
+                color: 'primary.main'
+              }} 
+            />
+          )}
+        </DialogTitle>
         <DialogContent>
           <form onSubmit={handleEditSubmit}>
             <TextField
@@ -927,15 +1042,34 @@ function BalanceSheet() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
-          <Button onClick={handleEditSubmit} variant="contained" color="primary">
-            Save Changes
+          <Button 
+            onClick={handleEditSubmit} 
+            variant="contained" 
+            color="primary"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? <CircularProgress size={24} /> : 'Save Changes'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-        <DialogTitle>Confirm Delete</DialogTitle>
+      <Dialog 
+        open={openDeleteDialog} 
+        onClose={() => setOpenDeleteDialog(false)}
+      >
+        <DialogTitle>
+          Confirm Delete
+          {isSubmitting && (
+            <CircularProgress 
+              size={20} 
+              sx={{ 
+                ml: 2,
+                color: 'error.main'
+              }} 
+            />
+          )}
+        </DialogTitle>
         <DialogContent>
           <Typography>
             Are you sure you want to delete this entry? This action cannot be undone.
@@ -943,8 +1077,13 @@ function BalanceSheet() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDeleteDialog(false)}>Cancel</Button>
-          <Button onClick={handleDeleteConfirm} variant="contained" color="error">
-            Delete
+          <Button 
+            onClick={handleDeleteConfirm} 
+            variant="contained" 
+            color="error"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? <CircularProgress size={24} /> : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>

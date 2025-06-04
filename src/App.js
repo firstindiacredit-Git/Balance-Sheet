@@ -6,6 +6,7 @@ import Register from './components/Register';
 import Dashboard from './components/Dashboard';
 import BalanceSheet from './components/BalanceSheet';
 import DataEntryGrid from './components/DataEntryGrid';
+import Profile from './components/Profile';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 const PrivateRoute = ({ children }) => {
@@ -49,6 +50,14 @@ function App() {
             element={
               <PrivateRoute>
                 <DataEntryGrid />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <PrivateRoute>
+                <Profile />
               </PrivateRoute>
             }
           />
