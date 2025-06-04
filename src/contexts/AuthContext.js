@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
                     localStorage.removeItem('userEmail');
                     message.error('Session expired. Please login again.');
                 }
-                return Promise.reject(error);
+                return Promise.reject(error.response?.data || error);
             }
         );
 
@@ -138,8 +138,6 @@ export const AuthProvider = ({ children }) => {
         try {
             setError(null);
             
-            console.log('AuthContext login called with:', { username });
-            
             // Validate input
             if (!username || !password) {
                 const errorMessage = 'Please provide both username and password';
@@ -165,7 +163,7 @@ export const AuthProvider = ({ children }) => {
             }
 
             const loginData = {
-                username: username.toLowerCase().trim(),
+                username: String(username).toLowerCase().trim(),
                 password
             };
 
@@ -189,15 +187,15 @@ export const AuthProvider = ({ children }) => {
             message.success('Login successful!');
             return { success: true };
         } catch (error) {
-            console.error('Login error in AuthContext:', error.response?.data || error);
+            console.error('Login error in AuthContext:', error);
             
             let errorMessage = 'Login failed. Please try again.';
             
-            if (error.response?.status === 401) {
+            if (error.status === 401) {
                 errorMessage = 'Invalid username or password';
-            } else if (error.response?.status === 400) {
-                errorMessage = error.response.data?.error || 'Please check your credentials';
-            } else if (error.response?.status === 500) {
+            } else if (error.status === 400) {
+                errorMessage = error.error || 'Please check your credentials';
+            } else if (error.status === 500) {
                 errorMessage = 'Server error. Please try again later.';
             }
 
@@ -206,7 +204,7 @@ export const AuthProvider = ({ children }) => {
             return { 
                 success: false, 
                 error: errorMessage,
-                fields: error.response?.data?.fields
+                fields: error.fields
             };
         }
     };
