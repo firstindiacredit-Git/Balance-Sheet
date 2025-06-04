@@ -40,6 +40,8 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import CloseIcon from '@mui/icons-material/Close';
 
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+
 function BalanceSheet() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -67,9 +69,7 @@ function BalanceSheet() {
 
   const fetchSheet = async () => {
     try {
-      const response = await axios.get(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}`);
-      // const response = await axios.get(`http://localhost:5000/api/sheets/${id}`);
-
+      const response = await axios.get(`${API_URL}/api/sheets/${id}`);
       setSheet(response.data);
     } catch (error) {
       console.error('Error fetching sheet:', error);
@@ -78,8 +78,7 @@ function BalanceSheet() {
 
   const fetchEntries = async () => {
     try {
-      const response = await axios.get(`https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries`);
-      // const response = await axios.get(`http://localhost:5000/api/sheets/${id}/entries`);
+      const response = await axios.get(`${API_URL}/api/sheets/${id}/entries`);
       setEntries(response.data);
     } catch (error) {
       console.error('Error fetching entries:', error);
@@ -88,57 +87,77 @@ function BalanceSheet() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!newEntry.description || !newEntry.amount || !newEntry.type) {
+        alert('Please fill in all required fields');
+        return;
+    }
+
     const formData = new FormData();
     formData.append('description', newEntry.description);
     formData.append('amount', newEntry.amount);
     formData.append('type', newEntry.type);
     if (newEntry.photo) {
-      formData.append('photo', newEntry.photo);
+        formData.append('photo', newEntry.photo);
     }
 
     try {
-      const response = await axios.post(
-        `https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('Please log in again');
+            return;
         }
-      );
 
-      if (response.data) {
-        setNewEntry({
-          description: '',
-          amount: '',
-          type: 'expense',
-          photo: null,
+        console.log('Submitting entry:', {
+            description: newEntry.description,
+            amount: newEntry.amount,
+            type: newEntry.type,
+            hasPhoto: !!newEntry.photo,
+            photoType: newEntry.photo?.type,
+            photoSize: newEntry.photo?.size
         });
-        setOpenAddDialog(false);
-        fetchEntries();
-      }
-    } catch (error) {
-      console.error('Error adding entry:', error);
-      let errorMessage = 'Failed to add entry';
-      
-      if (error.response) {
-        // The request was made and the server responded with a status code
-        // that falls out of the range of 2xx
-        errorMessage = error.response.data.error || error.response.data.details || errorMessage;
-        console.error('Error response:', error.response.data);
-      } else if (error.request) {
-        // The request was made but no response was received
-        errorMessage = 'No response from server';
-        console.error('Error request:', error.request);
-      } else {
-        // Something happened in setting up the request that triggered an Error
-        errorMessage = error.message;
-        console.error('Error message:', error.message);
-      }
 
-      // You can add a state for error messages and display them in the UI
-      alert(errorMessage);
+        const response = await axios.post(
+            `${API_URL}/api/sheets/${id}/entries`,
+            formData,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            }
+        );
+
+        console.log('Server response:', response.data);
+
+        if (response.data) {
+            setNewEntry({
+                description: '',
+                amount: '',
+                type: 'expense',
+                photo: null,
+            });
+            setPreviewImage(null);
+            setOpenAddDialog(false);
+            fetchEntries();
+        }
+    } catch (error) {
+        console.error('Error details:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status,
+            headers: error.response?.headers
+        });
+
+        let errorMessage = 'Failed to add entry. Please try again.';
+        if (error.response?.data?.error) {
+            errorMessage = error.response.data.error;
+            if (error.response.data.details) {
+                errorMessage += `\nDetails: ${JSON.stringify(error.response.data.details)}`;
+            }
+        }
+        alert(errorMessage);
     }
   };
 
@@ -235,53 +254,72 @@ function BalanceSheet() {
 
   const handleEditSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate required fields
+    if (!editEntry?.description || !editEntry?.amount || !editEntry?.type) {
+        alert('Please fill in all required fields');
+        return;
+    }
+
     const formData = new FormData();
     formData.append('description', editEntry.description);
     formData.append('amount', editEntry.amount);
     formData.append('type', editEntry.type);
     if (editEntry.photo) {
-      formData.append('photo', editEntry.photo);
+        formData.append('photo', editEntry.photo);
     }
 
     try {
-      const response = await axios.put(
-        `https://balance-sheet-backend-three.vercel.app/api/sheets/${id}/entries/${editEntry._id}`,
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          },
+        const token = localStorage.getItem('token');
+        if (!token) {
+            alert('Please log in again');
+            return;
         }
-      );
 
-      if (response.data) {
+        console.log('Updating entry:', {
+            id: editEntry._id,
+            description: editEntry.description,
+            amount: editEntry.amount,
+            type: editEntry.type,
+            hasPhoto: !!editEntry.photo
+        });
+
+        const response = await axios.put(
+            `${API_URL}/api/sheets/${id}/entries/${editEntry._id}`,
+            formData,
+            {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'multipart/form-data'
+                }
+            }
+        );
+
+        console.log('Update response:', response.data);
         setOpenEditDialog(false);
         fetchEntries();
-      }
     } catch (error) {
-      console.error('Error updating entry:', error);
-      let errorMessage = 'Failed to update entry';
-      
-      if (error.response) {
-        errorMessage = error.response.data.error || error.response.data.details || errorMessage;
-        console.error('Error response:', error.response.data);
-      } else if (error.request) {
-        errorMessage = 'No response from server';
-        console.error('Error request:', error.request);
-      } else {
-        errorMessage = error.message;
-        console.error('Error message:', error.message);
-      }
+        console.error('Error updating entry:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+        });
 
-      alert(errorMessage);
+        let errorMessage = 'Failed to update entry. Please try again.';
+        if (error.response?.data?.error) {
+            errorMessage = error.response.data.error;
+            if (error.response.data.details) {
+                errorMessage += `\nDetails: ${JSON.stringify(error.response.data.details)}`;
+            }
+        }
+        alert(errorMessage);
     }
   };
 
   const handleDeleteConfirm = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`https://balance-sheet-backend-three.vercel.app/api/delete/sheets/${id}/entries/${entryToDelete._id}`, { 
+      await axios.delete(`${API_URL}/api/delete/sheets/${id}/entries/${entryToDelete._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -653,9 +691,7 @@ function BalanceSheet() {
         fullWidth
       >
         <DialogTitle>
-          <Typography variant="h6" sx={{ color: '#1976d2' }}>
-            Add New Entry
-          </Typography>
+          Add New Entry
         </DialogTitle>
         <DialogContent>
           <form onSubmit={handleSubmit} style={{ marginTop: '16px' }}>
@@ -709,23 +745,86 @@ function BalanceSheet() {
                 </FormControl>
               </Grid>
               <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  type="file"
-                  onChange={(e) =>
-                    setNewEntry({ ...newEntry, photo: e.target.files[0] })
-                  }
-                  inputProps={{ accept: 'image/*' }}
-                  InputProps={{
-                    sx: { borderRadius: 2 }
-                  }}
-                />
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <input
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    id="photo-upload"
+                    type="file"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        // Validate file size (5MB limit)
+                        if (file.size > 5 * 1024 * 1024) {
+                          alert('File size should be less than 5MB');
+                          e.target.value = null;
+                          return;
+                        }
+                        // Validate file type
+                        if (!file.type.startsWith('image/')) {
+                          alert('Please upload an image file');
+                          e.target.value = null;
+                          return;
+                        }
+                        setNewEntry({ ...newEntry, photo: file });
+                        // Create preview URL
+                        const previewUrl = URL.createObjectURL(file);
+                        setPreviewImage(previewUrl);
+                      }
+                    }}
+                  />
+                  <label htmlFor="photo-upload">
+                    <Button
+                      variant="outlined"
+                      component="span"
+                      fullWidth
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Upload Photo
+                    </Button>
+                  </label>
+                  {previewImage && (
+                    <Box sx={{ mt: 1, textAlign: 'center' }}>
+                      <img
+                        src={previewImage}
+                        alt="Preview"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '200px',
+                          objectFit: 'contain'
+                        }}
+                      />
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => {
+                          setNewEntry({ ...newEntry, photo: null });
+                          setPreviewImage(null);
+                        }}
+                        sx={{ mt: 1 }}
+                      >
+                        Remove Photo
+                      </Button>
+                    </Box>
+                  )}
+                </Box>
               </Grid>
             </Grid>
           </form>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setOpenAddDialog(false)}>Cancel</Button>
+          <Button onClick={() => {
+            setOpenAddDialog(false);
+            setNewEntry({
+              description: '',
+              amount: '',
+              type: 'expense',
+              photo: null,
+            });
+            setPreviewImage(null);
+          }}>
+            Cancel
+          </Button>
           <Button 
             onClick={handleSubmit}
             variant="contained" 

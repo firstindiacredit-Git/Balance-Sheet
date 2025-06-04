@@ -5,7 +5,7 @@ import { message } from 'antd';
 const AuthContext = createContext(null);
 
 // Configure axios defaults
-axios.defaults.baseURL = 'https://balance-sheet-backend-three.vercel.app/api';
+axios.defaults.baseURL = 'http://localhost:5000/api';
 
 export const useAuth = () => {
     const context = useContext(AuthContext);
