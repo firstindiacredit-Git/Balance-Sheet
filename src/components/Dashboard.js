@@ -16,6 +16,7 @@ import {
   Menu,
   Table,
   Statistic,
+  Empty,
 } from 'antd';
 import {
   PlusOutlined,
@@ -25,6 +26,8 @@ import {
   EditOutlined,
   DeleteOutlined,
   EyeOutlined,
+  CalendarOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -69,6 +72,10 @@ function Dashboard() {
       message.error('Failed to fetch balance sheets');
     }
   };
+
+  // Separate owned and shared sheets
+  const ownedSheets = sheets.filter(sheet => sheet.user === user?._id);
+  const sharedSheets = sheets.filter(sheet => sheet.user !== user?._id);
 
   const handleCreateSheet = async () => {
     try {
@@ -312,38 +319,97 @@ function Dashboard() {
         </div>
       </Card>
 
-      <Row gutter={[24, 24]}>
-        {sheets.map((sheet, index) => (
-          <Col xs={24} sm={12} md={8} key={sheet._id}>
-            <Card
-              hoverable
-              style={{
-                height: '100%',
-                background: cardGradients[index % cardGradients.length],
-                borderRadius: '8px',
-                cursor: 'pointer'
-              }}
-              bodyStyle={{ padding: '20px', height: '100%' }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div onClick={() => navigate(`/sheet/${sheet._id}`)}>
-                  <Title level={4} style={{ color: 'white', margin: 0 }}>
-                    {sheet.name}
-                  </Title>
-                  <Text style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                    Created: {new Date(sheet.createdAt).toLocaleDateString()}
-                  </Text>
+      {/* Owned Sheets Section */}
+      <div style={{ marginBottom: '32px' }}>
+        <Title level={3} style={{ marginBottom: '16px' }}>My Balance Sheets</Title>
+        <Row gutter={[24, 24]}>
+          {ownedSheets.map((sheet, index) => (
+            <Col xs={24} sm={12} md={8} key={sheet._id}>
+              <Card
+                hoverable
+                style={{
+                  height: '100%',
+                  background: cardGradients[index % cardGradients.length],
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
+                bodyStyle={{ padding: '20px', height: '100%' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div onClick={() => navigate(`/sheet/${sheet._id}`)}>
+                    <Title level={4} style={{ color: 'white', margin: 0 }}>
+                      {sheet.name}
+                    </Title>
+                    <Text style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
+                      Created: {new Date(sheet.createdAt).toLocaleDateString()}
+                    </Text>
+                  </div>
+                  <SheetManager 
+                    sheet={sheet}
+                    onSheetUpdated={handleSheetUpdated}
+                    onSheetDeleted={handleSheetDeleted}
+                  />
                 </div>
-                <SheetManager 
-                  sheet={sheet}
-                  onSheetUpdated={handleSheetUpdated}
-                  onSheetDeleted={handleSheetDeleted}
-                />
-              </div>
-            </Card>
-          </Col>
-        ))}
-      </Row>
+              </Card>
+            </Col>
+          ))}
+          {ownedSheets.length === 0 && (
+            <Col span={24}>
+              <Empty
+                description="No balance sheets created yet"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              />
+            </Col>
+          )}
+        </Row>
+      </div>
+
+      {/* Shared Sheets Section */}
+      <div>
+        <Title level={3} style={{ marginBottom: '16px' }}>Shared with Me</Title>
+        <Row gutter={[24, 24]}>
+          {sharedSheets.map((sheet, index) => (
+            <Col xs={24} sm={12} md={8} key={sheet._id}>
+              <Card
+                hoverable
+                style={{
+                  height: '100%',
+                  background: cardGradients[index % cardGradients.length],
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
+                bodyStyle={{ padding: '20px', height: '100%' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div onClick={() => navigate(`/sheet/${sheet._id}`)}>
+                    <Title level={4} style={{ color: 'white', margin: 0 }}>
+                      {sheet.name}
+                    </Title>
+                    <div style={{ marginTop: '8px' }}>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.8)', display: 'block' }}>
+                        <UserOutlined style={{ marginRight: '8px' }} />
+                        Shared by: {sheet.sharedBy}
+                      </Text>
+                      <Text style={{ color: 'rgba(255, 255, 255, 0.8)', display: 'block', marginTop: '4px' }}>
+                        <ClockCircleOutlined style={{ marginRight: '8px' }} />
+                        Shared on: {new Date(sheet.updatedAt).toLocaleDateString()}
+                      </Text>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </Col>
+          ))}
+          {sharedSheets.length === 0 && (
+            <Col span={24}>
+              <Empty
+                description="No balance sheets shared with you"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+              />
+            </Col>
+          )}
+        </Row>
+      </div>
 
       {/* Create Modal */}
       <Modal
