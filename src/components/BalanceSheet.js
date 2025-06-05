@@ -31,20 +31,32 @@ import {
   Fab,
   CircularProgress,
   Skeleton,
+  Snackbar,
+  Alert,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAvatar,
+  Avatar,
+  Chip,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
+import ShareIcon from '@mui/icons-material/Share';
+import PeopleIcon from '@mui/icons-material/People';
+import CloseIcon from '@mui/icons-material/Close';
+import BlockIcon from '@mui/icons-material/Block';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
-import CloseIcon from '@mui/icons-material/Close';
 import './BalanceSheet.css';
 
-const API_URL = 'https://balance-sheet-backend-three.vercel.app';
-// const API_URL ='http://localhost:5000';
+// const API_URL = 'https://balance-sheet-backend-three.vercel.app';
+const API_URL ='http://localhost:5000';
 
 function BalanceSheet() {
   const { id } = useParams();
@@ -70,6 +82,19 @@ function BalanceSheet() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [openShareDialog, setOpenShareDialog] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+  const [shareError, setShareError] = useState('');
+  const [shareSuccess, setShareSuccess] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [sharedBy, setSharedBy] = useState('');
+  const [openSharedUsersDialog, setOpenSharedUsersDialog] = useState(false);
+  const [sharedUsers, setSharedUsers] = useState([]);
+  const [isRemovingAccess, setIsRemovingAccess] = useState(false);
+  const [removeAccessError, setRemoveAccessError] = useState('');
+  const [shareHistory, setShareHistory] = useState([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
     fetchSheet();
@@ -81,6 +106,19 @@ function BalanceSheet() {
       setIsLoading(true);
       const response = await axios.get(`${API_URL}/api/sheets/${id}`);
       setSheet(response.data);
+      
+      // Check if current user is the owner
+      const token = localStorage.getItem('token');
+      if (token) {
+        const decoded = JSON.parse(atob(token.split('.')[1]));
+        const isOwner = response.data.user === decoded.userId;
+        setIsOwner(isOwner);
+        
+        // If not the owner, set the sharedBy information
+        if (!isOwner && response.data.sharedBy) {
+          setSharedBy(response.data.sharedBy);
+        }
+      }
     } catch (error) {
       console.error('Error fetching sheet:', error);
     } finally {
@@ -97,6 +135,51 @@ function BalanceSheet() {
       console.error('Error fetching entries:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchSharedUsers = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await axios.get(`${API_URL}/api/sheets/${id}/shared-users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      setSharedUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching shared users:', error);
+      // Show error to user
+      setShareError('Failed to fetch shared users');
+    }
+  };
+
+  const fetchShareHistory = async () => {
+    try {
+      setIsLoadingHistory(true);
+      setShareError('');
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setShareError('Please log in to view share history');
+        return;
+      }
+
+      const response = await axios.get(`${API_URL}/api/users/share-history`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('Share history response:', response.data);
+      setShareHistory(response.data);
+    } catch (error) {
+      console.error('Error fetching share history:', error);
+      setShareError(error.response?.data?.error || 'Failed to fetch share history');
+      setShareHistory([]); // Reset history on error
+    } finally {
+      setIsLoadingHistory(false);
     }
   };
 
@@ -237,7 +320,7 @@ function BalanceSheet() {
     
     // Add watermark
     const img = new Image();
-    img.src = '/logo.png'; // Make sure logo.png is in the public folder
+    img.src = '/logo.png';
     img.onload = function() {
       // Calculate watermark size and position
       const imgWidth = 100;
@@ -251,17 +334,33 @@ function BalanceSheet() {
       doc.addImage(img, 'PNG', (pageWidth - imgWidth) / 2, (pageHeight - imgHeight) / 2, imgWidth, imgHeight);
       doc.restoreGraphicsState();
       
-      // Add title
+      // Add title with color
       doc.setFontSize(16);
+      doc.setTextColor(25, 118, 210); // Material-UI primary blue color
       doc.text(sheet.name, 14, 15);
       
-      // Add summary
-      doc.setFontSize(12);
-      doc.text(`Total Income: ₹${totals.income.toFixed(2)}`, 14, 30);
-      doc.text(`Total Expenses: ₹${totals.expenses.toFixed(2)}`, 14, 35);
-      doc.text(`Balance: ₹${totals.balance.toFixed(2)}`, 14, 40);
+      // Reset text color for other content
+      doc.setTextColor(0, 0, 0); // Reset to black
 
-      // Add table
+      // Add summary table
+      autoTable(doc, {
+        head: [['Summary', 'Value']],
+        body: [
+          ['Total Income', totals.income.toLocaleString('en-IN')],
+          ['Total Expenses', totals.expenses.toLocaleString('en-IN')],
+          ['Balance', totals.balance.toLocaleString('en-IN')]
+        ],
+        startY: 25,
+        theme: 'grid',
+        styles: { fontSize: 10 },
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: {
+          0: { cellWidth: 60, fontStyle: 'bold' },
+          1: { cellWidth: 60, halign: 'right', fontStyle: 'bold' }
+        }
+      });
+
+      // Add transactions table
       const tableData = entries.map(entry => [
         new Date(entry.createdAt).toLocaleString('en-IN', {
           year: 'numeric',
@@ -272,17 +371,42 @@ function BalanceSheet() {
           hour12: true
         }),
         entry.description,
-        entry.type,
-        `₹${entry.amount.toFixed(2)}`
+        entry.type.charAt(0).toUpperCase() + entry.type.slice(1),
+        entry.amount.toLocaleString('en-IN')
       ]);
 
       autoTable(doc, {
         head: [['Date', 'Description', 'Type', 'Amount']],
         body: tableData,
-        startY: 50,
+        startY: doc.lastAutoTable.finalY + 10,
         theme: 'grid',
         styles: { fontSize: 8 },
-        headStyles: { fillColor: [41, 128, 185] }
+        headStyles: { fillColor: [41, 128, 185] },
+        columnStyles: {
+          0: { cellWidth: 40 },
+          1: { cellWidth: 70 },
+          2: { cellWidth: 30, halign: 'center' },
+          3: { cellWidth: 30, halign: 'right' }
+        },
+        didParseCell: function(data) {
+          // Add color to income/expense cells
+          if (data.column.index === 2) {
+            if (data.cell.raw === 'Income') {
+              data.cell.styles.textColor = [76, 175, 80]; // Green for income
+            } else if (data.cell.raw === 'Expense') {
+              data.cell.styles.textColor = [244, 67, 54]; // Red for expense
+            }
+          }
+          // Add color to amount cells
+          if (data.column.index === 3) {
+            const type = data.row.cells[2].raw;
+            if (type === 'Income') {
+              data.cell.styles.textColor = [76, 175, 80]; // Green for income
+            } else if (type === 'Expense') {
+              data.cell.styles.textColor = [244, 67, 54]; // Red for expense
+            }
+          }
+        }
       });
 
       doc.save(`${sheet.name}_balance_sheet.pdf`);
@@ -394,6 +518,125 @@ function BalanceSheet() {
     }
   };
 
+  const handleShare = async () => {
+    if (!shareEmail) {
+      setShareError('Please enter an email address');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(shareEmail)) {
+      setShareError('Please enter a valid email address');
+      return;
+    }
+
+    setIsSharing(true);
+    setShareError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please log in again');
+        return;
+      }
+
+      console.log('Attempting to share sheet:', {
+        sheetId: id,
+        email: shareEmail,
+        url: `${API_URL}/api/sheets/share/${id}`,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const response = await axios.post(
+        `${API_URL}/api/sheets/share/${id}`,
+        { email: shareEmail },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('Share response:', response.data);
+      if (response.data.sharedBy) {
+        setSharedBy(response.data.sharedBy);
+      }
+
+      setShareSuccess(true);
+      setOpenShareDialog(false);
+      setShareEmail('');
+    } catch (error) {
+      console.error('Error sharing sheet:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        config: error.config
+      });
+      const errorMessage = error.response?.data?.error || 'Failed to share balance sheet';
+      setShareError(errorMessage);
+    } finally {
+      setIsSharing(false);
+    }
+  };
+
+  const handleRemoveAccess = async (userId) => {
+    try {
+      setIsRemovingAccess(true);
+      setRemoveAccessError('');
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setRemoveAccessError('Please log in again');
+        return;
+      }
+
+      console.log('Removing user access:', { sheetId: id, userId });
+
+      const response = await axios.delete(
+        `${API_URL}/api/sheets/${id}/shared-users/${userId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      console.log('Remove access response:', response.data);
+      setShareSuccess(true);
+      await fetchSharedUsers();
+      
+      // If this was the last shared user, close the dialog
+      if (sharedUsers.length === 1) {
+        setOpenShareDialog(false);
+      }
+    } catch (error) {
+      console.error('Error removing user access:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to remove user access';
+      setRemoveAccessError(errorMessage);
+    } finally {
+      setIsRemovingAccess(false);
+    }
+  };
+
+  // Add this function to check if user has edit permissions
+  const hasEditPermissions = () => {
+    return isOwner;
+  };
+
+  // Update useEffect to fetch share history when share dialog opens
+  useEffect(() => {
+    if (openShareDialog) {
+      fetchShareHistory();
+    }
+  }, [openShareDialog]);
+
   if (isLoading) {
     return (
       <Container>
@@ -482,11 +725,167 @@ function BalanceSheet() {
 
   const totals = calculateTotals();
 
+  // Update the share dialog to include history
+  const renderShareDialog = () => (
+    <Dialog 
+      open={openShareDialog} 
+      onClose={() => {
+        setOpenShareDialog(false);
+        setShareEmail('');
+        setShareError('');
+      }}
+      maxWidth="sm"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 2,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        bgcolor: 'primary.main', 
+        color: 'white',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        py: 2
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ShareIcon />
+          <Typography variant="h6">Share Balance Sheet</Typography>
+        </Box>
+        <IconButton
+          aria-label="close"
+          onClick={() => {
+            setOpenShareDialog(false);
+            setShareEmail('');
+            setShareError('');
+          }}
+          sx={{
+            color: 'white',
+            '&:hover': {
+              bgcolor: 'rgba(255, 255, 255, 0.1)'
+            }
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent sx={{ p: 3 }}>
+        <TextField
+          fullWidth
+          label="Email Address"
+          type="email"
+          value={shareEmail}
+          onChange={(e) => {
+            setShareEmail(e.target.value);
+            setShareError('');
+          }}
+          margin="normal"
+          required
+          variant="outlined"
+          error={!!shareError}
+          helperText={shareError}
+          disabled={isSharing}
+          sx={{ mb: 3 }}
+        />
+
+        <Typography variant="subtitle1" sx={{ mb: 2, color: 'text.secondary' }}>
+          Recently Shared With
+        </Typography>
+        
+        {isLoadingHistory ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <CircularProgress size={24} />
+          </Box>
+        ) : shareHistory.length > 0 ? (
+          <Box sx={{ 
+            display: 'flex', 
+            flexWrap: 'wrap', 
+            gap: 1,
+            mb: 2
+          }}>
+            {shareHistory.map((user) => (
+              <Chip
+                key={user._id}
+                avatar={
+                  <Avatar sx={{ bgcolor: 'primary.main' }}>
+                    {(user.username || user.email)[0].toUpperCase()}
+                  </Avatar>
+                }
+                label={user.username || user.email}
+                onClick={() => setShareEmail(user.email)}
+                sx={{
+                  '&:hover': {
+                    bgcolor: 'primary.light',
+                    color: 'white'
+                  }
+                }}
+              />
+            ))}
+          </Box>
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            No recent sharing history
+          </Typography>
+        )}
+      </DialogContent>
+      <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
+        <Button 
+          onClick={() => {
+            setOpenShareDialog(false);
+            setShareEmail('');
+            setShareError('');
+          }}
+          disabled={isSharing}
+          sx={{
+            color: 'text.secondary',
+            '&:hover': {
+              bgcolor: 'action.hover'
+            }
+          }}
+        >
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleShare}
+          variant="contained" 
+          color="primary"
+          disabled={isSharing}
+          sx={{ 
+            borderRadius: 2,
+            textTransform: 'none',
+            background: 'linear-gradient(45deg, #9c27b0 30%, #ba68c8 90%)',
+            '&:hover': {
+              background: 'linear-gradient(45deg, #7b1fa2 30%, #9c27b0 90%)'
+            }
+          }}
+        >
+          {isSharing ? <CircularProgress size={24} /> : 'Share'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
   return (
     <Container>
       <Box className="css-35ijrp">
         <Typography variant="h4" component="h1" gutterBottom sx={{ color: 'white' }}>
           {sheet.name}
+          {!isOwner && sharedBy && (
+            <Typography 
+              variant="subtitle1" 
+              component="span" 
+              sx={{ 
+                ml: 2, 
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: '0.8em'
+              }}
+            >
+              (Shared with you by {sharedBy})
+            </Typography>
+          )}
         </Typography>
         <Box>
           <ButtonGroup variant="contained" sx={{ mr: 2 }}>
@@ -510,6 +909,18 @@ function BalanceSheet() {
             >
               Download PDF
             </Button>
+            {hasEditPermissions() && (
+              <Button
+                startIcon={<ShareIcon />}
+                onClick={() => setOpenShareDialog(true)}
+                sx={{ 
+                  bgcolor: '#9c27b0',
+                  '&:hover': { bgcolor: '#7b1fa2' }
+                }}
+              >
+                Share
+              </Button>
+            )}
           </ButtonGroup>
           <Button 
             variant="outlined" 
@@ -805,7 +1216,9 @@ function BalanceSheet() {
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Type</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Amount</TableCell>
                   <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Photo</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Actions</TableCell>
+                  {hasEditPermissions() && (
+                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Actions</TableCell>
+                  )}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -863,30 +1276,32 @@ function BalanceSheet() {
                         </IconButton>
                       )}
                     </TableCell>
-                    <TableCell>
-                      <ButtonGroup size="small">
-                        <IconButton
-                          color="primary"
-                          onClick={() => handleEdit(entry)}
-                          size="small"
-                          sx={{ 
-                            '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.1)' }
-                          }}
-                        >
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton
-                          color="error"
-                          onClick={() => handleDelete(entry)}
-                          size="small"
-                          sx={{ 
-                            '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.1)' }
-                          }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </ButtonGroup>
-                    </TableCell>
+                    {hasEditPermissions() && (
+                      <TableCell>
+                        <ButtonGroup size="small">
+                          <IconButton
+                            color="primary"
+                            onClick={() => handleEdit(entry)}
+                            size="small"
+                            sx={{ 
+                              '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.1)' }
+                            }}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton
+                            color="error"
+                            onClick={() => handleDelete(entry)}
+                            size="small"
+                            sx={{ 
+                              '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.1)' }
+                            }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </ButtonGroup>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -1065,24 +1480,6 @@ function BalanceSheet() {
         </DialogActions>
       </Dialog>
 
-      {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="add"
-        onClick={() => setOpenAddDialog(true)}
-        sx={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-          background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
-          '&:hover': {
-            background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)'
-          }
-        }}
-      >
-        <AddIcon />
-      </Fab>
-
       {/* Edit Dialog */}
       <Dialog 
         open={openEditDialog} 
@@ -1237,6 +1634,224 @@ function BalanceSheet() {
           <Button onClick={() => setOpenPhotoDialog(false)}>Close</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Share Dialog */}
+      {renderShareDialog()}
+
+      {/* Success Snackbar */}
+      <Snackbar
+        open={shareSuccess}
+        autoHideDuration={6000}
+        onClose={() => setShareSuccess(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setShareSuccess(false)} 
+          severity="success" 
+          sx={{ width: '100%' }}
+        >
+          Balance sheet shared successfully!
+        </Alert>
+      </Snackbar>
+
+      {/* Shared Users Dialog */}
+      <Dialog
+        open={openSharedUsersDialog}
+        onClose={() => setOpenSharedUsersDialog(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          bgcolor: 'primary.main', 
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          py: 2
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PeopleIcon />
+            <Typography variant="h6">Shared With</Typography>
+          </Box>
+          <IconButton
+            aria-label="close"
+            onClick={() => setOpenSharedUsersDialog(false)}
+            sx={{
+              color: 'white',
+              '&:hover': {
+                bgcolor: 'rgba(255, 255, 255, 0.1)'
+              }
+            }}
+          >
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ p: 3 }}>
+          {removeAccessError && (
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 2,
+                borderRadius: 1,
+                '& .MuiAlert-icon': {
+                  color: 'error.main'
+                }
+              }}
+            >
+              {removeAccessError}
+            </Alert>
+          )}
+          {sharedUsers.length === 0 ? (
+            <Box sx={{ 
+              textAlign: 'center', 
+              py: 4,
+              color: 'text.secondary'
+            }}>
+              <PeopleIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" gutterBottom>
+                Not Shared Yet
+              </Typography>
+              <Typography variant="body2">
+                Share this balance sheet with others to collaborate
+              </Typography>
+            </Box>
+          ) : (
+            <List sx={{ p: 0 }}>
+              {sharedUsers.map((user) => (
+                <ListItem
+                  key={user._id}
+                  sx={{
+                    bgcolor: 'background.paper',
+                    borderRadius: 1,
+                    mb: 1,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    '&:hover': {
+                      bgcolor: 'action.hover'
+                    }
+                  }}
+                  secondaryAction={
+                    <Tooltip title="Remove Access">
+                      <IconButton
+                        edge="end"
+                        aria-label="remove access"
+                        onClick={() => handleRemoveAccess(user._id)}
+                        disabled={isRemovingAccess}
+                        sx={{
+                          color: 'error.main',
+                          '&:hover': {
+                            bgcolor: 'error.light',
+                            color: 'white'
+                          }
+                        }}
+                      >
+                        {isRemovingAccess ? (
+                          <CircularProgress size={24} color="error" />
+                        ) : (
+                          <BlockIcon />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+                  }
+                >
+                  <ListItemAvatar>
+                    <Avatar sx={{ 
+                      bgcolor: 'primary.main',
+                      color: 'white'
+                    }}>
+                      {(user.username || user.email)[0].toUpperCase()}
+                    </Avatar>
+                  </ListItemAvatar>
+                  <ListItemText
+                    primary={
+                      <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
+                        {user.username || user.email}
+                      </Typography>
+                    }
+                    secondary={
+                      <Typography variant="body2" color="text.secondary">
+                        Shared on {new Date(user.sharedAt).toLocaleDateString()}
+                      </Typography>
+                    }
+                  />
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: 'background.default' }}>
+          <Button
+            onClick={() => setOpenSharedUsersDialog(false)}
+            sx={{
+              color: 'text.secondary',
+              '&:hover': {
+                bgcolor: 'action.hover'
+              }
+            }}
+          >
+            Close
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setOpenSharedUsersDialog(false);
+              setOpenShareDialog(true);
+            }}
+            startIcon={<PersonAddIcon />}
+            sx={{
+              bgcolor: 'primary.main',
+              '&:hover': {
+                bgcolor: 'primary.dark'
+              }
+            }}
+          >
+            Share with More
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Floating Action Buttons */}
+      <Box sx={{ position: 'fixed', bottom: 24, right: 24, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {hasEditPermissions() && (
+          <>
+            <Fab
+              color="primary"
+              aria-label="share"
+              onClick={() => {
+                fetchSharedUsers();
+                setOpenSharedUsersDialog(true);
+              }}
+              sx={{
+                background: 'linear-gradient(45deg, #9c27b0 30%, #ba68c8 90%)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #7b1fa2 30%, #9c27b0 90%)'
+                }
+              }}
+            >
+              <PeopleIcon />
+            </Fab>
+            <Fab
+              color="primary"
+              aria-label="add"
+              onClick={() => setOpenAddDialog(true)}
+              sx={{
+                background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)'
+                }
+              }}
+            >
+              <AddIcon />
+            </Fab>
+          </>
+        )}
+      </Box>
     </Container>
   );
 }
