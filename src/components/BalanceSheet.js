@@ -55,8 +55,8 @@ import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
 import './BalanceSheet.css';
 
-const API_URL = 'https://balance-sheet-backend-three.vercel.app';
-// const API_URL = 'http://localhost:5000';
+// const API_URL = 'https://balance-sheet-backend-three.vercel.app';
+const API_URL = 'http://localhost:5000';
 
 function BalanceSheet() {
   const { id } = useParams();
@@ -883,7 +883,7 @@ function BalanceSheet() {
                 fontSize: '0.8em'
               }}
             >
-              (Shared with you by {sharedBy})
+              (Shared by {sharedBy})
             </Typography>
           )}
         </Typography>
