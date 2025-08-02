@@ -7,12 +7,21 @@ import {
 } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBedqwAr6gEoSf-nSZcf_zLn2Xe5MGVn80",
-  authDomain: "bestsite-e1453.firebaseapp.com",
-  projectId: "bestsite-e1453",
-  storageBucket: "bestsite-e1453.appspot.com",
-  messagingSenderId: "62210888916",
-  appId: "1:62210888916:web:e4eb1f3d1c9559503a1741",
+  apiKey:
+    process.env.REACT_APP_FIREBASE_API_KEY ||
+    "null",
+  authDomain:
+    process.env.REACT_APP_FIREBASE_AUTH_DOMAIN ||
+    "null",
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || " null",
+  storageBucket:
+    process.env.REACT_APP_FIREBASE_STORAGE_BUCKET ||
+    "null",
+  messagingSenderId:
+    process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "null",
+  appId:
+    process.env.REACT_APP_FIREBASE_APP_ID ||
+    "null",
 };
 
 // Initialize Firebase
