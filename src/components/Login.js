@@ -160,18 +160,18 @@ function Login() {
             </Button>
           </Form.Item>
 
-          <Form.Item>
+          <Form.Item style={{ textAlign: "center" }}>
             <Button
               type="link"
               onClick={() => navigate("/forgot-password")}
-              style={{ float: "left" }}
+              style={{ float: "center" }}
             >
               Forgot Password?
             </Button>
             <Button
               type="link"
               onClick={() => navigate("/register")}
-              style={{ float: "right" }}
+              style={{ float: "center" }}
             >
               Don't have an account? Register
             </Button>
