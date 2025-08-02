@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Container,
   Grid,
@@ -39,6 +40,8 @@ import {
   ListItemAvatar,
   Avatar,
   Chip,
+  Menu,
+  ListItemIcon,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -48,12 +51,22 @@ import PeopleIcon from '@mui/icons-material/People';
 import CloseIcon from '@mui/icons-material/Close';
 import BlockIcon from '@mui/icons-material/Block';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import ViewListIcon from '@mui/icons-material/ViewList';
+import ViewModuleIcon from '@mui/icons-material/ViewModule';
 import axios from 'axios';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
 import PictureAsPdfIcon from '@mui/icons-material/PictureAsPdf';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
 import './BalanceSheet.css';
+import {
+  UserOutlined,
+  PlusOutlined,
+  LogoutOutlined,
+  MoreOutlined,
+  ShareAltOutlined,
+} from '@ant-design/icons';
 
 const API_URL = 'https://balance-sheet-backend-three.vercel.app';
 // const API_URL = 'http://localhost:5000';
@@ -61,6 +74,7 @@ const API_URL = 'https://balance-sheet-backend-three.vercel.app';
 function BalanceSheet() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [sheet, setSheet] = useState(null);
   const [entries, setEntries] = useState([]);
   const [filter, setFilter] = useState('all');
@@ -95,6 +109,18 @@ function BalanceSheet() {
   const [removeAccessError, setRemoveAccessError] = useState('');
   const [shareHistory, setShareHistory] = useState([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [viewMode, setViewMode] = useState(() => {
+    // Initialize viewMode from localStorage or default to 'table'
+    const savedViewMode = localStorage.getItem('balanceSheetViewMode');
+    return savedViewMode || 'table';
+  });
+  const [menuAnchorEl, setMenuAnchorEl] = useState(null);
+  const [selectedEntry, setSelectedEntry] = useState(null);
+
+  // Add useEffect to save viewMode to localStorage when it changes
+  useEffect(() => {
+    localStorage.setItem('balanceSheetViewMode', viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     fetchSheet();
@@ -637,6 +663,266 @@ function BalanceSheet() {
     }
   }, [openShareDialog]);
 
+  // Add these new handlers
+  const handleMenuClick = (event, entry) => {
+    setMenuAnchorEl(event.currentTarget);
+    setSelectedEntry(entry);
+  };
+
+  const handleMenuClose = () => {
+    setMenuAnchorEl(null);
+    setSelectedEntry(null);
+  };
+
+  const handleMenuEdit = () => {
+    handleEdit(selectedEntry);
+    handleMenuClose();
+  };
+
+  const handleMenuDelete = () => {
+    handleDelete(selectedEntry);
+    handleMenuClose();
+  };
+
+  // Add this new function to render grid view
+  const renderGridView = () => (
+    <Grid container spacing={{ xs: 1, sm: 2 }}>
+      {getFilteredEntries().map((entry) => (
+        <Grid item xs={12} sm={6} md={4} key={entry._id}>
+          <Card 
+            elevation={2}
+            sx={{ 
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: { xs: 2, sm: 2 },
+              transition: 'all 0.3s ease',
+              position: 'relative',
+              overflow: 'hidden',
+              '&:hover': {
+                transform: 'translateY(-4px)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
+              }
+            }}
+          >
+            {/* Type Indicator Bar - Side */}
+            <Box sx={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: '2px',
+              background: entry.type === 'income' 
+                ? 'linear-gradient(180deg, #4caf50, #81c784)' 
+                : 'linear-gradient(180deg, #f44336, #e57373)'
+            }} />
+
+            <CardContent sx={{ 
+              flex: 1, 
+              p: { xs: 1.5, sm: 2 },
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 1,
+              pl: { xs: 2, sm: 2.5 } // Add left padding to account for the side bar
+            }}>
+              {/* Header Section with Photo and Menu */}
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'flex-start',
+                mb: 0.5,
+                position: 'relative'
+              }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: 'column',
+                  gap: 0.5,
+                  flex: 1,
+                  pr: entry.photo ? 3 : 0
+                }}>
+                  <Typography 
+                    variant="subtitle2" 
+                    color="text.secondary"
+                    sx={{ 
+                      fontSize: { xs: '0.625rem', sm: '0.75rem' },
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5
+                    }}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2ZM12 20C7.59 20 4 16.41 4 12C4 7.59 7.59 4 12 4C16.41 4 20 7.59 20 12C20 16.41 16.41 20 12 20ZM12.5 7H11V13L16.2 16.2L17 14.9L12.5 12.2V7Z" fill="currentColor"/>
+                    </svg>
+                    {new Date(entry.createdAt).toLocaleString('en-IN', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    })}
+                  </Typography>
+                  <Typography 
+                    variant="h5" 
+                    color={entry.type === 'income' ? 'success.main' : 'error.main'}
+                    sx={{ 
+                      fontWeight: 'bold',
+                      fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                      textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                    }}
+                  >
+                    ₹{entry.amount.toFixed(2)}
+                  </Typography>
+                </Box>
+
+                {/* Photo in Corner */}
+                {entry.photo && (
+                  <Box sx={{ 
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    width: { xs: '48px', sm: '64px' },
+                    height: { xs: '48px', sm: '64px' },
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    transition: 'transform 0.2s ease',
+                    '&:hover': {
+                      transform: 'scale(1.05)',
+                      '& .photo-overlay': {
+                        opacity: 1
+                      }
+                    }
+                  }}>
+                    <img
+                      src={entry.photo}
+                      alt="Entry photo"
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                      onClick={() => handlePhotoClick(entry.photo)}
+                    />
+                    <Box 
+                      className="photo-overlay"
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'rgba(0,0,0,0.3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: 0,
+                        transition: 'opacity 0.2s ease'
+                      }}
+                      onClick={() => handlePhotoClick(entry.photo)}
+                    >
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M21 19V5C21 3.9 20.1 3 19 3H5C3.9 3 3 3.9 3 5V19C3 20.1 3.9 21 5 21H19C20.1 21 21 20.1 21 19ZM8.5 13.5L11 16.51L14.5 12L19 18H5L8.5 13.5Z" fill="white"/>
+                      </svg>
+                    </Box>
+                  </Box>
+                )}
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip
+                    label={entry.type}
+                    size="small"
+                    sx={{
+                      bgcolor: entry.type === 'income' ? 'rgba(76, 175, 80, 0.1)' : 'rgba(244, 67, 54, 0.1)',
+                      color: entry.type === 'income' ? '#4caf50' : '#f44336',
+                      fontWeight: 'bold',
+                      fontSize: { xs: '0.625rem', sm: '0.75rem' },
+                      height: { xs: '20px', sm: '24px' }
+                    }}
+                  />
+                  {hasEditPermissions() && (
+                    <IconButton
+                      size="small"
+                      onClick={(e) => handleMenuClick(e, entry)}
+                      sx={{
+                        color: 'text.secondary',
+                        '&:hover': {
+                          bgcolor: 'rgba(0, 0, 0, 0.04)'
+                        }
+                      }}
+                    >
+                      <MoreVertIcon sx={{ fontSize: { xs: '1rem', sm: '1.25rem' } }} />
+                    </IconButton>
+                  )}
+                </Box>
+              </Box>
+
+              {/* Description Section */}
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                  color: 'text.primary',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical',
+                  lineHeight: 1.4
+                }}
+              >
+                {entry.description}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      ))}
+
+      {/* Menu for Edit/Delete Options */}
+      <Menu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={handleMenuClose}
+        PaperProps={{
+          elevation: 3,
+          sx: {
+            borderRadius: 2,
+            mt: 1,
+            minWidth: '180px'
+          }
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={handleMenuEdit} sx={{ py: 1 }}>
+          <ListItemIcon>
+            <EditIcon fontSize="small" color="primary" />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Edit" 
+            primaryTypographyProps={{
+              fontSize: '0.875rem',
+              fontWeight: 500
+            }}
+          />
+        </MenuItem>
+        <MenuItem onClick={handleMenuDelete} sx={{ py: 1 }}>
+          <ListItemIcon>
+            <DeleteIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          <ListItemText 
+            primary="Delete" 
+            primaryTypographyProps={{
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              color: 'error.main'
+            }}
+          />
+        </MenuItem>
+      </Menu>
+    </Grid>
+  );
+
   if (isLoading) {
     return (
       <Container>
@@ -869,82 +1155,149 @@ function BalanceSheet() {
   );
 
   return (
-    <Container>
-      <Box className="css-35ijrp">
-        <Typography variant="h4" component="h1" gutterBottom sx={{ color: 'white' }}>
-          {sheet.name}
-          {!isOwner && sharedBy && (
+    <Container maxWidth="xl" sx={{ 
+      px: { xs: 0.5, sm: 2, md: 3 },
+      py: { xs: 1, sm: 3 },
+      overflow: 'hidden',
+      pb: { xs: '80px', sm: 3 }
+    }}>
+      {/* Mobile Header */}
+      <Box className="css-35ijrp" sx={{
+        p: { xs: 1.5, sm: 3 },
+        mb: { xs: 1, sm: 3 },
+        borderRadius: { xs: 0, sm: 2 },
+        background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+      }}>
+        <Box sx={{
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: { xs: 1, sm: 0 }
+        }}>
+          {/* Sheet Name Section */}
+          <Box sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 0.5,
+            width: { xs: '100%', sm: 'auto' }
+          }}>
             <Typography 
-              variant="subtitle1" 
-              component="span" 
+              variant="h4" 
+              component="h1" 
               sx={{ 
-                ml: 2, 
-                color: 'rgba(255, 255, 255, 0.7)',
-                fontSize: '0.8em'
+                color: 'white',
+                fontSize: { xs: '1.25rem', sm: '2rem', md: '2.125rem' },
+                fontWeight: 'bold',
+                textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
               }}
             >
-              (Shared by {sharedBy})
+              {sheet.name}
             </Typography>
-          )}
-        </Typography>
-        <Box>
-          <ButtonGroup variant="contained" sx={{ mr: 2 }}>
-            <Button
-              startIcon={<FileDownloadIcon />}
-              onClick={downloadCSV}
-              sx={{ 
-                bgcolor: '#4caf50',
-                '&:hover': { bgcolor: '#388e3c' }
-              }}
-            >
-              Download CSV
-            </Button>
-            <Button
-              startIcon={<PictureAsPdfIcon />}
-              onClick={downloadPDF}
-              sx={{ 
-                bgcolor: '#f44336',
-                '&:hover': { bgcolor: '#d32f2f' }
-              }}
-            >
-              Download PDF
-            </Button>
-            {hasEditPermissions() && (
-              <Button
-                startIcon={<ShareIcon />}
-                onClick={() => setOpenShareDialog(true)}
+            {!isOwner && sharedBy && (
+              <Typography 
+                variant="subtitle1" 
+                component="span" 
                 sx={{ 
-                  bgcolor: '#9c27b0',
-                  '&:hover': { bgcolor: '#7b1fa2' }
+                  color: 'rgba(255, 255, 255, 0.9)',
+                  fontSize: { xs: '0.75rem', sm: '1rem' },
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5
                 }}
               >
-                Share
-              </Button>
+                <PeopleIcon sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }} />
+                Shared by {sharedBy}
+              </Typography>
             )}
-          </ButtonGroup>
-          <Button 
-            variant="outlined" 
-            onClick={() => navigate('/')}
-            sx={{ 
-              color: 'white',
-              borderColor: 'white',
-              '&:hover': { 
+          </Box>
+<div className='csvcss'>
+          {/* Action Buttons Section */}
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'row', sm: 'row' },
+            gap: { xs: 0.5, sm: 2 },
+            width: { xs: '100%', sm: 'auto' },
+            justifyContent: { xs: 'flex-end', sm: 'flex-end' }
+          }}>
+            <ButtonGroup 
+              variant="contained" 
+              size="small"
+              sx={{ 
+                width: { xs: 'auto', sm: 'auto' },
+                '& .MuiButton-root': {
+                  flex: { xs: 1, sm: 'none' },
+                  fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                  py: { xs: 0.5, sm: 1 },
+                  px: { xs: 0.75, sm: 2 },
+                  whiteSpace: 'nowrap',
+                  minWidth: { xs: 'auto', sm: 'auto' }
+                }
+              }}
+            >
+              <Button
+                startIcon={<FileDownloadIcon sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }} />}
+                onClick={downloadCSV}
+                sx={{ 
+                  bgcolor: '#4caf50',
+                  '&:hover': { bgcolor: '#388e3c' }
+                }}
+              >
+                CSV
+              </Button>
+              <Button
+                startIcon={<PictureAsPdfIcon sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }} />}
+                onClick={downloadPDF}
+                sx={{ 
+                  bgcolor: '#f44336',
+                  '&:hover': { bgcolor: '#d32f2f' }
+                }}
+              >
+                PDF
+              </Button>
+              {hasEditPermissions() && (
+                <Button
+                  startIcon={<ShareIcon sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }} />}
+                  onClick={() => setOpenShareDialog(true)}
+                  sx={{ 
+                    bgcolor: '#9c27b0',
+                    '&:hover': { bgcolor: '#7b1fa2' }
+                  }}
+                >
+                  Share
+                </Button>
+              )}
+            </ButtonGroup>
+            <Button 
+              variant="outlined" 
+              size="small"
+              onClick={() => navigate('/')}
+              sx={{ 
+                color: 'white',
                 borderColor: 'white',
-                bgcolor: 'rgba(255, 255, 255, 0.1)'
-              }
-            }}
-          >
-            Back to Dashboard
-          </Button>
+                fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                py: { xs: 0.5, sm: 1 },
+                px: { xs: 0.75, sm: 2 },
+                '&:hover': { 
+                  borderColor: 'white',
+                  bgcolor: 'rgba(255, 255, 255, 0.1)'
+                }
+              }}
+            >
+              Back
+            </Button>
+          </Box>
+          </div>
         </Box>
       </Box>
 
-      <Grid container spacing={3}>
+      <Grid container spacing={{ xs: 1, sm: 2, md: 3 }}>
         <Grid item xs={12}>
           <Card 
             elevation={3}
             sx={{ 
-              borderRadius: 2,
+              borderRadius: { xs: 0, sm: 2 },
               background: 'linear-gradient(145deg, #ffffff 0%, #f5f5f5 100%)',
               height: '100%',
               display: 'flex',
@@ -955,7 +1308,7 @@ function BalanceSheet() {
           >
             <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', p: 0 }}>
               <Box sx={{ 
-                p: 3, 
+                p: { xs: 1.5, sm: 3 }, 
                 background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
                 color: 'white'
               }}>
@@ -963,7 +1316,8 @@ function BalanceSheet() {
                   variant="h6" 
                   sx={{ 
                     fontWeight: 'bold',
-                    textShadow: '1px 1px 2px rgba(0,0,0,0.1)'
+                    textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
+                    fontSize: { xs: '0.875rem', sm: '1.25rem' }
                   }}
                 >
                   Financial Summary
@@ -973,14 +1327,14 @@ function BalanceSheet() {
                 <Grid item xs={12} md={4}>
                   <Box 
                     sx={{ 
-                      p: 3,
+                      p: { xs: 1.5, sm: 3 },
                       height: '100%',
                       display: 'flex',
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
                       background: 'rgba(76, 175, 80, 0.05)',
-                      borderRight: '1px solid #e0e0e0',
+                      borderRight: { xs: 'none', md: '1px solid #e0e0e0' },
                       borderBottom: { xs: '1px solid #e0e0e0', md: 'none' }
                     }}
                   >
@@ -988,7 +1342,10 @@ function BalanceSheet() {
                       variant="subtitle1" 
                       color="text.secondary"
                       gutterBottom
-                      sx={{ fontWeight: 500 }}
+                      sx={{ 
+                        fontWeight: 500,
+                        fontSize: { xs: '0.75rem', sm: '1rem' }
+                      }}
                     >
                       Total Income
                     </Typography>
@@ -998,7 +1355,8 @@ function BalanceSheet() {
                       sx={{ 
                         fontWeight: 'bold',
                         textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
-                        mb: 1
+                        mb: 0.5,
+                        fontSize: { xs: '1.25rem', sm: '2rem' }
                       }}
                     >
                       ₹{totals.income.toFixed(2)}
@@ -1009,7 +1367,8 @@ function BalanceSheet() {
                       sx={{ 
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 0.5
+                        gap: 0.5,
+                        fontSize: { xs: '0.625rem', sm: '0.875rem' }
                       }}
                     >
                       Income Transactions
@@ -1019,7 +1378,7 @@ function BalanceSheet() {
                 <Grid item xs={12} md={4}>
                   <Box 
                     sx={{ 
-                      p: 3,
+                      p: { xs: 1.5, sm: 3 },
                       height: '100%',
                       display: 'flex',
                       flexDirection: 'column',
@@ -1034,7 +1393,10 @@ function BalanceSheet() {
                       variant="subtitle1" 
                       color="text.secondary"
                       gutterBottom
-                      sx={{ fontWeight: 500 }}
+                      sx={{ 
+                        fontWeight: 500,
+                        fontSize: { xs: '0.75rem', sm: '1rem' }
+                      }}
                     >
                       Total Expenses
                     </Typography>
@@ -1044,7 +1406,8 @@ function BalanceSheet() {
                       sx={{ 
                         fontWeight: 'bold',
                         textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
-                        mb: 1
+                        mb: 0.5,
+                        fontSize: { xs: '1.25rem', sm: '2rem' }
                       }}
                     >
                       ₹{totals.expenses.toFixed(2)}
@@ -1055,7 +1418,8 @@ function BalanceSheet() {
                       sx={{ 
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 0.5
+                        gap: 0.5,
+                        fontSize: { xs: '0.625rem', sm: '0.875rem' }
                       }}
                     >
                       Expense Transactions
@@ -1065,7 +1429,7 @@ function BalanceSheet() {
                 <Grid item xs={12} md={4}>
                   <Box 
                     sx={{ 
-                      p: 3,
+                      p: { xs: 1.5, sm: 3 },
                       height: '100%',
                       display: 'flex',
                       flexDirection: 'column',
@@ -1081,7 +1445,10 @@ function BalanceSheet() {
                       variant="subtitle1" 
                       color="text.secondary"
                       gutterBottom
-                      sx={{ fontWeight: 500 }}
+                      sx={{ 
+                        fontWeight: 500,
+                        fontSize: { xs: '0.75rem', sm: '1rem' }
+                      }}
                     >
                       Current Balance
                     </Typography>
@@ -1091,7 +1458,8 @@ function BalanceSheet() {
                       sx={{ 
                         fontWeight: 'bold',
                         textShadow: '1px 1px 2px rgba(0,0,0,0.1)',
-                        mb: 1
+                        mb: 0.5,
+                        fontSize: { xs: '1.25rem', sm: '2rem' }
                       }}
                     >
                       ₹{Math.abs(totals.balance).toFixed(2)}
@@ -1103,6 +1471,7 @@ function BalanceSheet() {
                         display: 'flex',
                         alignItems: 'center',
                         gap: 0.5,
+                        fontSize: { xs: '0.625rem', sm: '0.875rem' },
                         fontWeight: 500
                       }}
                     >
@@ -1117,198 +1486,429 @@ function BalanceSheet() {
 
         <Grid item xs={12}>
           <Box sx={{ 
-            mb: 2, 
+            mb: { xs: 1, sm: 2 }, 
             display: 'flex', 
-            gap: 2, 
+            gap: { xs: 0.5, sm: 2 }, 
             justifyContent: 'space-between',
             alignItems: 'center',
+            flexDirection: { xs: 'column', sm: 'row' },
             flexWrap: 'wrap'
           }}>
-            <TextField
-              placeholder="Search entries..."
-              variant="outlined"
-              size="small"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              sx={{
-                minWidth: '250px',
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  '&:hover fieldset': {
-                    borderColor: '#1976d2',
+            <Box sx={{ 
+              display: 'flex', 
+              gap: { xs: 0.5, sm: 2 },
+              width: { xs: '100%', sm: 'auto' },
+              alignItems: 'center',
+              flexDirection: { xs: 'column', sm: 'row' }
+            }}>
+              <TextField
+                placeholder="Search entries..."
+                variant="outlined"
+                size="small"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{
+                  width: { xs: '100%', sm: 'auto' },
+                  minWidth: { xs: '100%', sm: '250px' },
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: { xs: 1, sm: 2 },
+                    '&:hover fieldset': {
+                      borderColor: '#1976d2',
+                    },
                   },
-                },
-              }}
-              InputProps={{
-                startAdornment: (
-                  <Box sx={{ mr: 1, color: 'text.secondary' }}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z" fill="currentColor"/>
-                    </svg>
-                  </Box>
-                ),
-                endAdornment: searchQuery && (
-                  <IconButton
-                    size="small"
-                    onClick={() => setSearchQuery('')}
-                    sx={{ mr: -1 }}
-                  >
-                    <CloseIcon fontSize="small" />
-                  </IconButton>
-                ),
-              }}
-            />
-            <ButtonGroup variant="contained" aria-label="filter buttons">
-              <Button
-                onClick={() => setFilter('all')}
-                variant={filter === 'all' ? 'contained' : 'outlined'}
+                  '& .MuiInputBase-input': {
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    py: { xs: 0.75, sm: 1 }
+                  }
+                }}
+                InputProps={{
+                  startAdornment: (
+                    <Box sx={{ mr: 1, color: 'text.secondary' }}>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M15.5 14H14.71L14.43 13.73C15.41 12.59 16 11.11 16 9.5C16 5.91 13.09 3 9.5 3C5.91 3 3 5.91 3 9.5C3 13.09 5.91 16 9.5 16C11.11 16 12.59 15.41 13.73 14.43L14 14.71V15.5L19 20.49L20.49 19L15.5 14ZM9.5 14C7.01 14 5 11.99 5 9.5C5 7.01 7.01 5 9.5 5C11.99 5 14 7.01 14 9.5C14 11.99 11.99 14 9.5 14Z" fill="currentColor"/>
+                      </svg>
+                    </Box>
+                  ),
+                  endAdornment: searchQuery && (
+                    <IconButton
+                      size="small"
+                      onClick={() => setSearchQuery('')}
+                      sx={{ mr: -1 }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  ),
+                }}
+              />
+              <ButtonGroup 
+                variant="contained" 
+                size="small"
+                aria-label="filter buttons"
                 sx={{
-                  bgcolor: filter === 'all' ? '#1976d2' : 'transparent',
-                  color: filter === 'all' ? 'white' : '#1976d2',
-                  '&:hover': {
-                    bgcolor: filter === 'all' ? '#1565c0' : 'rgba(25, 118, 210, 0.1)'
+                  width: { xs: '100%', sm: 'auto' },
+                  '& .MuiButton-root': {
+                    flex: { xs: 1, sm: 'none' },
+                    fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                    py: { xs: 0.5, sm: 1 },
+                    px: { xs: 0.75, sm: 2 },
+                    minWidth: { xs: '0', sm: 'auto' }
                   }
                 }}
               >
-                All
+                <Button
+                  onClick={() => setFilter('all')}
+                  variant={filter === 'all' ? 'contained' : 'outlined'}
+                  sx={{
+                    bgcolor: filter === 'all' ? '#1976d2' : 'transparent',
+                    color: filter === 'all' ? 'white' : '#1976d2',
+                    '&:hover': {
+                      bgcolor: filter === 'all' ? '#1565c0' : 'rgba(25, 118, 210, 0.1)'
+                    }
+                  }}
+                >
+                  All
+                </Button>
+                <Button
+                  onClick={() => setFilter('income')}
+                  variant={filter === 'income' ? 'contained' : 'outlined'}
+                  sx={{
+                    bgcolor: filter === 'income' ? '#4caf50' : 'transparent',
+                    color: filter === 'income' ? 'white' : '#4caf50',
+                    '&:hover': {
+                      bgcolor: filter === 'income' ? '#388e3c' : 'rgba(76, 175, 80, 0.1)'
+                    }
+                  }}
+                >
+                  Income
+                </Button>
+                <Button
+                  onClick={() => setFilter('expense')}
+                  variant={filter === 'expense' ? 'contained' : 'outlined'}
+                  sx={{
+                    bgcolor: filter === 'expense' ? '#f44336' : 'transparent',
+                    color: filter === 'expense' ? 'white' : '#f44336',
+                    '&:hover': {
+                      bgcolor: filter === 'expense' ? '#d32f2f' : 'rgba(244, 67, 54, 0.1)'
+                    }
+                  }}
+                >
+                  Expenses
+                </Button>
+              </ButtonGroup>
+            </Box>
+
+            <ButtonGroup 
+              variant="outlined" 
+              size="small"
+              aria-label="view toggle"
+              sx={{
+                width: { xs: '100%', sm: 'auto' },
+                '& .MuiButton-root': {
+                  flex: { xs: 1, sm: 'none' },
+                  fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                  py: { xs: 0.5, sm: 1 },
+                  px: { xs: 0.75, sm: 2 }
+                }
+              }}
+            >
+              <Button
+                onClick={() => setViewMode('table')}
+                variant={viewMode === 'table' ? 'contained' : 'outlined'}
+                startIcon={<ViewListIcon sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }} />}
+                sx={{
+                  bgcolor: viewMode === 'table' ? '#1976d2' : 'transparent',
+                  color: viewMode === 'table' ? 'white' : '#1976d2',
+                  '&:hover': {
+                    bgcolor: viewMode === 'table' ? '#1565c0' : 'rgba(25, 118, 210, 0.1)'
+                  }
+                }}
+              >
+                Table
               </Button>
               <Button
-                onClick={() => setFilter('income')}
-                variant={filter === 'income' ? 'contained' : 'outlined'}
+                onClick={() => setViewMode('grid')}
+                variant={viewMode === 'grid' ? 'contained' : 'outlined'}
+                startIcon={<ViewModuleIcon sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }} />}
                 sx={{
-                  bgcolor: filter === 'income' ? '#4caf50' : 'transparent',
-                  color: filter === 'income' ? 'white' : '#4caf50',
+                  bgcolor: viewMode === 'grid' ? '#1976d2' : 'transparent',
+                  color: viewMode === 'grid' ? 'white' : '#1976d2',
                   '&:hover': {
-                    bgcolor: filter === 'income' ? '#388e3c' : 'rgba(76, 175, 80, 0.1)'
+                    bgcolor: viewMode === 'grid' ? '#1565c0' : 'rgba(25, 118, 210, 0.1)'
                   }
                 }}
               >
-                Income
-              </Button>
-              <Button
-                onClick={() => setFilter('expense')}
-                variant={filter === 'expense' ? 'contained' : 'outlined'}
-                sx={{
-                  bgcolor: filter === 'expense' ? '#f44336' : 'transparent',
-                  color: filter === 'expense' ? 'white' : '#f44336',
-                  '&:hover': {
-                    bgcolor: filter === 'expense' ? '#d32f2f' : 'rgba(244, 67, 54, 0.1)'
-                  }
-                }}
-              >
-                Expenses
+                Grid
               </Button>
             </ButtonGroup>
           </Box>
-          <TableContainer 
-            component={Paper}
-            sx={{ 
-              borderRadius: 2,
-              overflow: 'hidden',
-              boxShadow: 3
-            }}
-          >
-            <Table>
-              <TableHead>
-                <TableRow sx={{ bgcolor: '#1976d2' }}>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Date</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Description</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Type</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Amount</TableCell>
-                  <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Photo</TableCell>
-                  {hasEditPermissions() && (
-                    <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Actions</TableCell>
-                  )}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {getFilteredEntries().map((entry, index) => (
-                  <TableRow 
-                    key={entry._id}
-                    sx={{ 
-                      bgcolor: index % 2 === 0 ? 'white' : '#f5f5f5',
-                      '&:hover': { bgcolor: '#e3f2fd' }
-                    }}
-                  >
-                    <TableCell>
-                      {new Date(entry.createdAt).toLocaleString('en-IN', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                      })}
-                    </TableCell>
-                    <TableCell>{entry.description}</TableCell>
-                    <TableCell>
-                      <Typography
-                        color={entry.type === 'income' ? 'success.main' : 'error.main'}
-                        sx={{ fontWeight: 'bold' }}
-                      >
-                        {entry.type}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        color={entry.type === 'income' ? 'success.main' : 'error.main'}
-                        sx={{ fontWeight: 'bold' }}
-                      >
-                        ₹{entry.amount.toFixed(2)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      {entry.photo && (
-                        <IconButton
-                          onClick={() => handlePhotoClick(entry.photo)}
-                          size="small"
-                        >
-                          <img
-                            src={entry.photo}
-                            alt="Entry photo"
-                            style={{
-                              width: '40px',
-                              height: '40px',
-                              objectFit: 'cover',
-                              borderRadius: '4px'
-                            }}
-                          />
-                        </IconButton>
+
+          {viewMode === 'table' ? (
+            // Existing table view code
+            <Box sx={{ 
+              width: '100%',
+              overflowX: 'auto',
+              WebkitOverflowScrolling: 'touch',
+              '&::-webkit-scrollbar': {
+                height: '4px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: '#f1f1f1',
+                borderRadius: '2px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: '#888',
+                borderRadius: '2px',
+                '&:hover': {
+                  background: '#555',
+                },
+              },
+            }}>
+              <TableContainer 
+                component={Paper}
+                sx={{ 
+                  borderRadius: { xs: 0, sm: 2 },
+                  overflow: 'hidden',
+                  boxShadow: 3,
+                  minWidth: { xs: '600px', sm: '100%' }
+                }}
+              >
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#1976d2' }}>
+                      <TableCell sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold',
+                        fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                        whiteSpace: 'nowrap',
+                        px: { xs: 0.75, sm: 2 },
+                        py: { xs: 0.75, sm: 1 }
+                      }}>Date</TableCell>
+                      <TableCell sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold',
+                        fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                        whiteSpace: 'nowrap',
+                        px: { xs: 0.75, sm: 2 },
+                        py: { xs: 0.75, sm: 1 }
+                      }}>Description</TableCell>
+                      <TableCell sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold',
+                        fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                        whiteSpace: 'nowrap',
+                        px: { xs: 0.75, sm: 2 },
+                        py: { xs: 0.75, sm: 1 }
+                      }}>Type</TableCell>
+                      <TableCell sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold',
+                        fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                        whiteSpace: 'nowrap',
+                        px: { xs: 0.75, sm: 2 },
+                        py: { xs: 0.75, sm: 1 }
+                      }}>Amount</TableCell>
+                      <TableCell sx={{ 
+                        color: 'white', 
+                        fontWeight: 'bold',
+                        fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                        whiteSpace: 'nowrap',
+                        px: { xs: 0.75, sm: 2 },
+                        py: { xs: 0.75, sm: 1 }
+                      }}>Photo</TableCell>
+                      {hasEditPermissions() && (
+                        <TableCell sx={{ 
+                          color: 'white', 
+                          fontWeight: 'bold',
+                          fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                          whiteSpace: 'nowrap',
+                          px: { xs: 0.75, sm: 2 },
+                          py: { xs: 0.75, sm: 1 }
+                        }}>Actions</TableCell>
                       )}
-                    </TableCell>
-                    {hasEditPermissions() && (
-                      <TableCell>
-                        <ButtonGroup size="small">
-                          <IconButton
-                            color="primary"
-                            onClick={() => handleEdit(entry)}
-                            size="small"
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {getFilteredEntries().map((entry, index) => (
+                      <TableRow 
+                        key={entry._id}
+                        sx={{ 
+                          bgcolor: index % 2 === 0 ? 'white' : '#f5f5f5',
+                          '&:hover': { bgcolor: '#e3f2fd' }
+                        }}
+                      >
+                        <TableCell sx={{ 
+                          fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                          whiteSpace: 'nowrap',
+                          px: { xs: 0.75, sm: 2 },
+                          py: { xs: 0.75, sm: 1 }
+                        }}>
+                          {new Date(entry.createdAt).toLocaleString('en-IN', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
+                        </TableCell>
+                        <TableCell sx={{ 
+                          fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                          maxWidth: { xs: '120px', sm: 'none' },
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          px: { xs: 0.75, sm: 2 },
+                          py: { xs: 0.75, sm: 1 }
+                        }}>
+                          {entry.description}
+                        </TableCell>
+                        <TableCell sx={{ 
+                          fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                          whiteSpace: 'nowrap',
+                          px: { xs: 0.75, sm: 2 },
+                          py: { xs: 0.75, sm: 1 }
+                        }}>
+                          <Typography
+                            color={entry.type === 'income' ? 'success.main' : 'error.main'}
                             sx={{ 
-                              '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.1)' }
+                              fontWeight: 'bold',
+                              fontSize: { xs: '0.625rem', sm: '0.875rem' }
                             }}
                           >
-                            <EditIcon />
-                          </IconButton>
-                          <IconButton
-                            color="error"
-                            onClick={() => handleDelete(entry)}
-                            size="small"
+                            {entry.type}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ 
+                          fontSize: { xs: '0.625rem', sm: '0.875rem' },
+                          whiteSpace: 'nowrap',
+                          px: { xs: 0.75, sm: 2 },
+                          py: { xs: 0.75, sm: 1 }
+                        }}>
+                          <Typography
+                            color={entry.type === 'income' ? 'success.main' : 'error.main'}
                             sx={{ 
-                              '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.1)' }
+                              fontWeight: 'bold',
+                              fontSize: { xs: '0.625rem', sm: '0.875rem' }
                             }}
                           >
-                            <DeleteIcon />
-                          </IconButton>
-                        </ButtonGroup>
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                            ₹{entry.amount.toFixed(2)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ 
+                          px: { xs: 0.75, sm: 2 },
+                          py: { xs: 0.75, sm: 1 }
+                        }}>
+                          {entry.photo && (
+                            <IconButton
+                              onClick={() => handlePhotoClick(entry.photo)}
+                              size="small"
+                              sx={{ p: { xs: 0.25, sm: 0.5 } }}
+                            >
+                              <img
+                                src={entry.photo}
+                                alt="Entry photo"
+                                style={{
+                                  width: '32px',
+                                  height: '32px',
+                                  objectFit: 'cover',
+                                  borderRadius: '4px'
+                                }}
+                              />
+                            </IconButton>
+                          )}
+                        </TableCell>
+                        {hasEditPermissions() && (
+                          <TableCell sx={{ 
+                            px: { xs: 0.75, sm: 2 },
+                            py: { xs: 0.75, sm: 1 }
+                          }}>
+                            <ButtonGroup size="small">
+                              <IconButton
+                                color="primary"
+                                onClick={() => handleEdit(entry)}
+                                size="small"
+                                sx={{ 
+                                  '&:hover': { bgcolor: 'rgba(25, 118, 210, 0.1)' },
+                                  padding: { xs: '2px', sm: '8px' }
+                                }}
+                              >
+                                <EditIcon sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }} />
+                              </IconButton>
+                              <IconButton
+                                color="error"
+                                onClick={() => handleDelete(entry)}
+                                size="small"
+                                sx={{ 
+                                  '&:hover': { bgcolor: 'rgba(244, 67, 54, 0.1)' },
+                                  padding: { xs: '2px', sm: '8px' }
+                                }}
+                              >
+                                <DeleteIcon sx={{ fontSize: { xs: '0.875rem', sm: '1.25rem' } }} />
+                              </IconButton>
+                            </ButtonGroup>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          ) : (
+            // Grid view
+            renderGridView()
+          )}
         </Grid>
       </Grid>
+
+      {/* Floating Action Buttons */}
+      <Box sx={{ 
+        position: 'fixed', 
+        bottom: { xs: 12, sm: 24 }, 
+        right: { xs: 12, sm: 24 }, 
+        display: { xs: 'none', sm: 'flex' }, 
+        flexDirection: 'column', 
+        gap: 1,
+        zIndex: 1000
+      }}>
+        {hasEditPermissions() && (
+          <>
+            <Fab
+              color="primary"
+              aria-label="share"
+              onClick={() => {
+                fetchSharedUsers();
+                setOpenSharedUsersDialog(true);
+              }}
+              sx={{
+                background: 'linear-gradient(45deg, #9c27b0 30%, #ba68c8 90%)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #7b1fa2 30%, #9c27b0 90%)'
+                },
+                width: { xs: 40, sm: 56 },
+                height: { xs: 40, sm: 56 }
+              }}
+            >
+              <PeopleIcon sx={{ fontSize: { xs: '1rem', sm: '1.5rem' } }} />
+            </Fab>
+            <Fab
+              color="primary"
+              aria-label="add"
+              onClick={() => setOpenAddDialog(true)}
+              sx={{
+                background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
+                '&:hover': {
+                  background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)'
+                },
+                width: { xs: 40, sm: 56 },
+                height: { xs: 40, sm: 56 }
+              }}
+            >
+              <AddIcon sx={{ fontSize: { xs: '1rem', sm: '1.5rem' } }} />
+            </Fab>
+          </>
+        )}
+      </Box>
 
       {/* Add Entry Dialog */}
       <Dialog 
@@ -1816,42 +2416,69 @@ function BalanceSheet() {
         </DialogActions>
       </Dialog>
 
-      {/* Floating Action Buttons */}
-      <Box sx={{ position: 'fixed', bottom: 24, right: 24, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {hasEditPermissions() && (
-          <>
-            <Fab
-              color="primary"
-              aria-label="share"
-              onClick={() => {
-                fetchSharedUsers();
-                setOpenSharedUsersDialog(true);
-              }}
-              sx={{
-                background: 'linear-gradient(45deg, #9c27b0 30%, #ba68c8 90%)',
-                '&:hover': {
-                  background: 'linear-gradient(45deg, #7b1fa2 30%, #9c27b0 90%)'
-                }
-              }}
-            >
-              <PeopleIcon />
-            </Fab>
-            <Fab
-              color="primary"
-              aria-label="add"
-              onClick={() => setOpenAddDialog(true)}
-              sx={{
-                background: 'linear-gradient(45deg, #1976d2 30%, #42a5f5 90%)',
-                '&:hover': {
-                  background: 'linear-gradient(45deg, #1565c0 30%, #1976d2 90%)'
-                }
-              }}
-            >
-              <AddIcon />
-            </Fab>
-          </>
-        )}
-      </Box>
+      {/* Mobile Bottom Navigation */}
+      {hasEditPermissions() && (
+        <div className="mobile-bottom-nav">
+          <div className="nav-item" onClick={() => setOpenShareDialog(true)}>
+            <ShareAltOutlined />
+            <span>Share</span>
+          </div>
+          <div className="nav-item" onClick={() => setOpenAddDialog(true)}>
+            <PlusOutlined />
+            <span>Add Entry</span>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        @media (max-width: 576px) {
+          .mobile-bottom-nav {
+            display: flex;
+          }
+        }
+        @media (min-width: 577px) {
+          .mobile-bottom-nav {
+            display: none !important;
+            visibility: hidden;
+            opacity: 0;
+            pointer-events: none;
+          }
+        }
+        .mobile-bottom-nav {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 60px;
+          background: white;
+          display: flex;
+          justify-content: space-around;
+          align-items: center;
+          box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+          z-index: 1000;
+        }
+        .nav-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          flex: 1;
+          height: 100%;
+          cursor: pointer;
+          color: #666;
+          transition: all 0.3s ease;
+        }
+        .nav-item:hover {
+          color: #1976d2;
+        }
+        .nav-item span {
+          font-size: 12px;
+          margin-top: 4px;
+        }
+        .nav-item .anticon {
+          font-size: 20px;
+        }
+      `}</style>
     </Container>
   );
 }

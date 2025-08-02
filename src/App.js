@@ -1,13 +1,20 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import 'antd/dist/reset.css';
-import Login from './components/Login';
-import Register from './components/Register';
-import Dashboard from './components/Dashboard';
-import BalanceSheet from './components/BalanceSheet';
-import DataEntryGrid from './components/DataEntryGrid';
-import Profile from './components/Profile';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import "antd/dist/reset.css";
+import Login from "./components/Login";
+import Register from "./components/Register";
+import Dashboard from "./components/Dashboard";
+import BalanceSheet from "./components/BalanceSheet";
+import DataEntryGrid from "./components/DataEntryGrid";
+import Profile from "./components/Profile";
+import ForgotPassword from "./components/ForgotPassword";
+import TestConnection from "./components/TestConnection";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 const PrivateRoute = ({ children }) => {
   const { isAuthenticated } = useAuth();
@@ -21,6 +28,8 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/test" element={<TestConnection />} />
           <Route
             path="/"
             element={
@@ -67,4 +76,4 @@ function App() {
   );
 }
 
-export default App; 
+export default App;
