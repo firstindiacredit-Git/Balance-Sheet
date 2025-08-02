@@ -184,7 +184,7 @@ const Profile = () => {
             style={{
               display: "flex",
               justifyContent: "space-between",
-              alignItems: "center",
+              alignItems: "center ",
             }}
           >
             <div>
