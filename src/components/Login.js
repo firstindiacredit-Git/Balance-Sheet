@@ -10,9 +10,12 @@ function Login() {
   const [form] = Form.useForm();
   const navigate = useNavigate();
   const { login, googleLogin } = useAuth();
+  const [loginLoading, setLoginLoading] = React.useState(false);
+  const [googleLoading, setGoogleLoading] = React.useState(false);
 
   const handleSubmit = async (values) => {
     try {
+      setLoginLoading(true);
       console.log("Login form submitted with values:", {
         username: values.username,
       });
@@ -29,11 +32,14 @@ function Login() {
     } catch (err) {
       console.error("Login error:", err);
       message.error(err.message || "An error occurred during login");
+    } finally {
+      setLoginLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
     try {
+      setGoogleLoading(true);
       const loadingMessage = message.loading("Connecting to Google...", 0);
       const result = await googleLogin();
       loadingMessage(); // Clear loading message
@@ -47,6 +53,8 @@ function Login() {
     } catch (err) {
       console.error("Google login error:", err);
       message.error("An error occurred during Google login");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -72,6 +80,8 @@ function Login() {
           block
           icon={<GoogleOutlined />}
           onClick={handleGoogleLogin}
+          loading={googleLoading}
+          disabled={googleLoading}
           style={{
             marginBottom: 16,
             height: 48,
@@ -82,15 +92,19 @@ function Login() {
             boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = "#f5f5f5";
-            e.currentTarget.style.borderColor = "#40a9ff";
+            if (!googleLoading) {
+              e.currentTarget.style.backgroundColor = "#f5f5f5";
+              e.currentTarget.style.borderColor = "#40a9ff";
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = "#fff";
-            e.currentTarget.style.borderColor = "#d9d9d9";
+            if (!googleLoading) {
+              e.currentTarget.style.backgroundColor = "#fff";
+              e.currentTarget.style.borderColor = "#d9d9d9";
+            }
           }}
         >
-          Continue with Google
+          {googleLoading ? "Connecting..." : "Continue with Google"}
         </Button>
 
         <Divider style={{ margin: "16px 0" }}>
@@ -103,6 +117,7 @@ function Login() {
           onFinish={handleSubmit}
           layout="vertical"
           requiredMark={false}
+          disabled={loginLoading}
         >
           <Form.Item
             name="username"
@@ -133,8 +148,15 @@ function Login() {
           </Form.Item>
 
           <Form.Item>
-            <Button type="primary" htmlType="submit" size="large" block>
-              Login
+            <Button
+              type="primary"
+              htmlType="submit"
+              size="large"
+              block
+              loading={loginLoading}
+              disabled={loginLoading}
+            >
+              {loginLoading ? "Logging in..." : "Login"}
             </Button>
           </Form.Item>
 
