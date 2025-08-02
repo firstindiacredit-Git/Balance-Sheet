@@ -13,7 +13,6 @@ import BalanceSheet from "./components/BalanceSheet";
 import DataEntryGrid from "./components/DataEntryGrid";
 import Profile from "./components/Profile";
 import ForgotPassword from "./components/ForgotPassword";
-import TestConnection from "./components/TestConnection";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 const PrivateRoute = ({ children }) => {
@@ -29,7 +28,6 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/test" element={<TestConnection />} />
           <Route
             path="/"
             element={
