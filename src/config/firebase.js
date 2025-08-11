@@ -13,7 +13,7 @@ const firebaseConfig = {
   authDomain:
     process.env.REACT_APP_FIREBASE_AUTH_DOMAIN ||
     "null",
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || " null",
+  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "null",
   storageBucket:
     process.env.REACT_APP_FIREBASE_STORAGE_BUCKET ||
     "null",

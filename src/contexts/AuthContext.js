@@ -306,6 +306,12 @@ export const AuthProvider = ({ children }) => {
     try {
       setError(null);
 
+      console.log("Starting Google login...");
+      console.log("Firebase config:", {
+        authDomain: auth.config.authDomain,
+        projectId: auth.config.projectId,
+      });
+
       // Sign in with Firebase Google provider
       const result = await signInWithPopup(auth, googleProvider);
       const firebaseUser = result.user;
@@ -332,18 +338,26 @@ export const AuthProvider = ({ children }) => {
       message.success("Google login successful!");
       return { success: true };
     } catch (error) {
-      console.error(
-        "Google login error in AuthContext:",
-        error.response?.data || error
-      );
+      console.error("Google login error in AuthContext:", error);
+      console.error("Error details:", {
+        code: error.code,
+        message: error.message,
+        response: error.response?.data,
+      });
 
       let errorMessage = "Google login failed. Please try again.";
 
-      if (error.code === "auth/popup-closed-by-user") {
+      if (error.code === "auth/unauthorized-domain") {
+        errorMessage =
+          "This domain is not authorized for Google login. Please contact support.";
+      } else if (error.code === "auth/popup-closed-by-user") {
         errorMessage = "Login cancelled by user";
       } else if (error.code === "auth/popup-blocked") {
         errorMessage =
           "Popup blocked by browser. Please allow popups and try again.";
+      } else if (error.code === "auth/network-request-failed") {
+        errorMessage =
+          "Network error. Please check your connection and try again.";
       } else if (error.response?.status === 401) {
         errorMessage = "Google authentication failed";
       } else if (error.response?.status === 400) {
